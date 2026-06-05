@@ -51,3 +51,19 @@ Step through a mission's plan slices with managed context and worktree isolation
 ```
 /work 4
 ```
+
+### `/hello`
+
+Morning triage ritual. Reads yesterday's daily note, open missions/issues, and GitHub PRs, then runs standup-style prompts, surfaces stuck items, and produces "Today's 3" written to the daily note. Optionally drafts a Slack update.
+
+```
+/hello
+```
+
+### `/goodbye`
+
+End-of-day shutdown ritual. Captures what got done, surfaces open loops, flags carry-overs, and writes a close-of-day summary to the daily note. Optionally drafts a Slack update.
+
+```
+/goodbye
+```
