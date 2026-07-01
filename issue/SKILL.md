@@ -9,7 +9,7 @@ Create a new issue file in `{notes vault}/issues/`.
 
 ## Steps
 
-1. **Determine the next ID** — count the existing `.md` files in `{notes vault}/issues/` and add 1. Zero-pad to 4 digits (e.g. `0001`, `0042`).
+1. **Determine the next ID** — read the `id:` frontmatter field from every `.md` file in `{notes vault}/Issues/`, take the maximum value, and add 1. Do **not** count files. The `id` value is a plain integer with **no leading zeros** (e.g. `1`, `42`) — YAML parses zero-padded integers as octal, which breaks base ordering. The filename uses a zero-padded 4-digit prefix (e.g. `0001-slug.md`, `0042-slug.md`); padding is for filenames only.
 
 2. **Infer from the description:**
    - `title` — a short human-readable title (also used for the filename slug, lowercase hyphenated)
@@ -25,7 +25,7 @@ Create a new issue file in `{notes vault}/issues/`.
 
 ```markdown
 ---
-id: NNNN
+id: N
 title: "Human readable title"
 status: open
 source: slack
@@ -55,7 +55,7 @@ The description as provided, cleaned up for clarity. Do not add "Reported via Sl
 ## Notes
 
 - Use today's date for `created`
-- Leave `closed`, `pr`, `jira` blank
+- Leave `closed`, `pr`, `jira` blank — each key must appear **once only**; duplicate keys corrupt YAML frontmatter
 - If the description is sparse, use it as-is in `## Description` — don't invent details
 - If links are present, format them as markdown inline under the title
 - `/bug` is an alias for this skill

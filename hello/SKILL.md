@@ -26,6 +26,7 @@ Run these steps in order. Ask one question at a time — this is a conversation,
 - Run for each watched repo: `gh pr list --author @me --repo {repo} --json number,title,url,updatedAt,reviewDecision`
 - Run for each watched repo: `gh pr list --review-requested @me --repo {repo} --json number,title,url,updatedAt`
 - Watched repos: `postman-eng/unified-runtime-monorepo`, `postman-eng/postman-app`
+- Search Slack for recent mentions: use `slack_search_public_and_private` with query `to:me after:YYYY-MM-DD` (yesterday's date) to find DMs and @mentions since last workday
 
 ### 2. Surface digest
 
@@ -35,6 +36,7 @@ Present a compact summary:
 - Stuck missions/issues (not triaged in 2+ days) — labelled ⚠️
 - PRs waiting on Tim's review
 - Tim's PRs with no activity in 2+ days
+- **Slack mentions & DMs** — list each message with channel, sender, and brief summary; flag any that need a reply or action
 
 ### 3. Standup prompts (one at a time)
 

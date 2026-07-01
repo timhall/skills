@@ -9,7 +9,7 @@ Create a new mission file in `{notes vault}/missions/`.
 
 ## Steps
 
-1. **Determine the next ID** — count the existing `.md` files in `{notes vault}/missions/` and add 1. Zero-pad to 4 digits (e.g. `0001`, `0042`).
+1. **Determine the next ID** — read the `id:` frontmatter field from every `.md` file in `{notes vault}/Missions/`, take the maximum value, and add 1. Do **not** count files. The `id` value is a plain integer with **no leading zeros** (e.g. `1`, `42`) — YAML parses zero-padded integers as octal, which breaks base ordering. The filename uses a zero-padded 4-digit prefix (e.g. `0001-slug.md`, `0042-slug.md`); padding is for filenames only.
 
 2. **Infer from the description:**
    - `title` — a short human-readable title (also used for the filename slug, lowercase hyphenated)
@@ -19,7 +19,7 @@ Create a new mission file in `{notes vault}/missions/`.
 
 ```markdown
 ---
-id: NNNN
+id: N
 title: "Human readable title"
 status: idea
 created: YYYY-MM-DD
