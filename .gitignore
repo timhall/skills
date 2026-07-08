@@ -1,5 +1,7 @@
-node_modules/
-.DS_Store
 .agents/
 skills-lock.json
 trmnl/uuid.txt
+
+node_modules/
+__pycache__
+.DS_Store

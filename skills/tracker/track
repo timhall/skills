@@ -12,6 +12,8 @@ Usage:
   track list [-q key=val[,val2] ...] [--json]
   track get  <issue|mission> <id> [--json]
   track path <issue|mission> <id>
+  track new  issue|mission "<title>" [--slug S] [--source S] [--link [Label|]URL] ...
+  track set  <issue|mission> <id> key=value ...
 
 Filters (repeatable -q; AND across keys, comma = OR within one key):
   -q type=issue                 issue | mission            (default: both)
@@ -20,6 +22,11 @@ Filters (repeatable -q; AND across keys, comma = OR within one key):
   -q <frontmatter-key>=...      any field, e.g. source=slack, tags=infra
 String matches are case-insensitive. A list-valued field (e.g. tags) matches if
 any of its entries is listed.
+
+new/set own the on-disk format so it never drifts: new assigns the next integer
+id, the zero-padded filename, and the per-type frontmatter + body scaffold; set
+edits frontmatter fields in place (e.g. status, last_triaged) without disturbing
+the rest of the file. Judgment (title, slug, description) is passed in by caller.
 """
 
 import argparse
@@ -27,12 +34,12 @@ import datetime as dt
 import glob
 import json
 import os
+import re
 import sys
+import urllib.parse
 
 VAULT = os.path.expanduser(os.environ.get("NOTES_VAULT") or "~/Documents/notes")
 SUBDIR = {"issue": "Issues", "mission": "Missions"}
-# Special filter keys handled by code rather than plain frontmatter matching.
-SPECIAL = {"type", "stale"}
 
 
 def parse_value(raw):
@@ -207,6 +214,116 @@ def cmd_path(args):
     print(resolve(args.type, args.id)["path"])
 
 
+def slugify(text):
+    s = re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")
+    if len(s) > 60:
+        s = s[:60].rsplit("-", 1)[0]
+    return s or "untitled"
+
+
+def next_id(typ):
+    ids = [it["id"] for it in load_items(typ) if it["id"] is not None]
+    return max(ids) + 1 if ids else 1
+
+
+def format_link(spec):
+    """'Label|url' or bare 'url' -> '- [Label](url)'; label defaults to the host."""
+    if "|" in spec:
+        label, url = (p.strip() for p in spec.split("|", 1))
+    else:
+        url = spec.strip()
+        label = urllib.parse.urlparse(url).netloc.replace("www.", "") or "link"
+    return f"- [{label}]({url})"
+
+
+def format_fm_line(key, val):
+    """A frontmatter line, quoting only when bare YAML would misread the value."""
+    if val == "":
+        return f"{key}:"
+    needs_quote = (val != val.strip() or ": " in val or " #" in val
+                   or val[:1] in "[]{}#&*!|>'\"%@`,")
+    if needs_quote:
+        return f'{key}: "{val.replace(chr(92), chr(92) * 2).replace(chr(34), chr(92) + chr(34))}"'
+    return f"{key}: {val}"
+
+
+def cmd_new(args):
+    typ, title = args.type, args.title.strip()
+    slug = (args.slug or slugify(title)).strip("-") or slugify(title)
+    new_id = next_id(typ)
+    created = dt.date.today().isoformat()
+    links = [format_link(l) for l in (args.link or [])]
+
+    if typ == "issue":
+        fm = [f"id: {new_id}", f'title: "{title}"', "status: open",
+              f"source: {args.source or 'self'}", f"created: {created}",
+              "closed:", "pr:", "jira:", "tags: []"]
+        sections = [("## Description", (args.description or "").strip()),
+                    ("## Investigation", ""), ("## Resolution", "")]
+    else:
+        fm = [f"id: {new_id}", f'title: "{title}"', "status: idea",
+              f"created: {created}", "plans:", "jira:", "tags: []"]
+        sections = [("## Problem", (args.problem or "").strip()),
+                    ("## Goal", (args.goal or "").strip()),
+                    ("## Progress", ""), ("## Resolution", "")]
+
+    out = ["---", *fm, "---", f"# {title}", ""]
+    if links:
+        out += links + [""]
+    for i, (heading, content) in enumerate(sections):
+        out += [heading, ""]
+        if content:
+            out += [content, ""]
+        elif i < len(sections) - 1:
+            out.append("")  # spacer so empty sections don't collide
+    text = "\n".join(out).rstrip() + "\n"
+
+    path = os.path.join(VAULT, SUBDIR[typ], f"{new_id:04d}-{slug}.md")
+    if os.path.exists(path):
+        sys.exit(f"track: refusing to overwrite existing {path}")
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w") as fh:
+        fh.write(text)
+    if args.json:
+        print(json.dumps({"type": typ, "id": new_id, "path": path}))
+    else:
+        print(f"created {typ} {new_id}: {path}")
+
+
+def cmd_set(args):
+    it = resolve(args.type, args.id)
+    path = it["path"]
+    with open(path) as fh:
+        lines = fh.read().split("\n")
+    if not lines or lines[0].strip() != "---":
+        sys.exit(f"track: {path} has no frontmatter to edit")
+    try:
+        end = next(i for i in range(1, len(lines)) if lines[i].strip() == "---")
+    except StopIteration:
+        sys.exit(f"track: {path} frontmatter is not terminated")
+
+    assignments = {}
+    for a in args.assignments:
+        if "=" not in a:
+            sys.exit(f"track: bad assignment {a!r} — expected key=value")
+        key, _, val = a.partition("=")
+        assignments[key.strip()] = val.strip()
+
+    for key, val in assignments.items():
+        idx = next((i for i in range(1, end)
+                    if lines[i].split(":", 1)[0].strip() == key), None)
+        if idx is not None:
+            lines[idx] = format_fm_line(key, val)
+        else:
+            lines.insert(end, format_fm_line(key, val))
+            end += 1
+
+    with open(path, "w") as fh:
+        fh.write("\n".join(lines))
+    changed = ", ".join(f"{k}={v or '∅'}" for k, v in assignments.items())
+    print(f"updated {args.type} {it['id']}: {changed}")
+
+
 def main():
     ap = argparse.ArgumentParser(prog="track", description="Query issues and missions.")
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -227,6 +344,25 @@ def main():
     p_path.add_argument("type")
     p_path.add_argument("id")
     p_path.set_defaults(func=cmd_path)
+
+    p_new = sub.add_parser("new", help="create an issue or mission")
+    p_new.add_argument("type", choices=("issue", "mission"))
+    p_new.add_argument("title")
+    p_new.add_argument("--slug", help="filename slug (default: slugified title)")
+    p_new.add_argument("--source", help="issue source (default: self)")
+    p_new.add_argument("--link", action="append", metavar="[Label|]URL",
+                       help="link under the title (repeatable)")
+    p_new.add_argument("--description", help="issue: Description body")
+    p_new.add_argument("--problem", help="mission: Problem body")
+    p_new.add_argument("--goal", help="mission: Goal body")
+    p_new.add_argument("--json", action="store_true", help="emit {type,id,path}")
+    p_new.set_defaults(func=cmd_new)
+
+    p_set = sub.add_parser("set", help="update frontmatter fields in place")
+    p_set.add_argument("type", choices=("issue", "mission"))
+    p_set.add_argument("id")
+    p_set.add_argument("assignments", nargs="+", metavar="key=value")
+    p_set.set_defaults(func=cmd_set)
 
     args = ap.parse_args()
     args.func(args)

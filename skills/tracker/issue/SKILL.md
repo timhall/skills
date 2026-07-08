@@ -3,59 +3,27 @@ name: issue
 description: Create a new issue in {notes vault}/issues/. Use when user reports a bug, investigation, or small self-contained work item — including when they say "/bug". Accepts a plain description and optional links.
 ---
 
-Read the **Notes vault** path from the `## Agent skills` section of CLAUDE.md — use it wherever `{notes vault}` appears below.
-
-Create a new issue file in `{notes vault}/issues/`.
+Create a new issue via the `track` CLI, which owns the ID, filename, and frontmatter format. Your job is the judgment; `track new` handles the format.
 
 ## Steps
 
-1. **Determine the next ID** — read the `id:` frontmatter field from every `.md` file in `{notes vault}/Issues/`, take the maximum value, and add 1. Do **not** count files. The `id` value is a plain integer with **no leading zeros** (e.g. `1`, `42`) — YAML parses zero-padded integers as octal, which breaks base ordering. The filename uses a zero-padded 4-digit prefix (e.g. `0001-slug.md`, `0042-slug.md`); padding is for filenames only.
+1. **Infer from the description:**
+   - **title** — a short human-readable title
+   - **`--slug`** — a concise filename slug, *only* if the title is long or awkward; otherwise omit and the CLI slugifies the title
+   - **`--source`** — detect from context: Slack URL/mention → `slack`; email → `email`; user/customer report → `user-report`; JIRA → `jira`; otherwise `self`
+   - **`--link`** — any URLs mentioned, one `--link` each, as `"Label|URL"` (e.g. `"Slack thread|https://…"`)
+   - **`--description`** — the description as provided, cleaned up for clarity. Don't add "Reported via Slack" etc. — source and links convey that. If sparse, use it as-is; don't invent detail.
 
-2. **Infer from the description:**
-   - `title` — a short human-readable title (also used for the filename slug, lowercase hyphenated)
-   - `source` — detect from context:
-     - Slack URL or mention → `slack`
-     - Email mention → `email`
-     - User report / customer → `user-report`
-     - JIRA mention → `jira`
-     - Otherwise → `self`
-   - Any URLs mentioned → collect as links to place inline under the title
+2. **Create it:**
 
-3. **Create the file** at `{notes vault}/issues/NNNN-slug.md`:
+   ```bash
+   track new issue "<title>" [--slug <slug>] [--source <source>] [--link "<Label>|<url>"] [--description "<text>"]
+   ```
 
-```markdown
----
-id: N
-title: "Human readable title"
-status: open
-source: slack
-created: YYYY-MM-DD
-closed:
-pr:
-jira:
-tags: []
----
-# Human Readable Title
-
-- [Slack thread](url) (omit links section entirely if none)
-
-## Description
-
-The description as provided, cleaned up for clarity. Do not add "Reported via Slack" or similar — source and links already convey that.
-
-## Investigation
-
-
-## Resolution
-
-```
-
-4. **Confirm** — tell the user the file path and ID. Ask if anything needs correcting.
+3. **Confirm** — the CLI prints the path and ID. Relay them and ask if anything needs correcting.
 
 ## Notes
 
-- Use today's date for `created`
-- Leave `closed`, `pr`, `jira` blank — each key must appear **once only**; duplicate keys corrupt YAML frontmatter
-- If the description is sparse, use it as-is in `## Description` — don't invent details
-- If links are present, format them as markdown inline under the title
-- `/bug` is an alias for this skill
+- `/bug` is an alias for this skill.
+- `track new` sets `status: open` and `created` to today, and leaves `closed`, `pr`, `jira`, and `tags` blank — don't pass those.
+- To change status or fill fields later, use `track set issue <id> status=… pr=…` — never hand-edit the frontmatter.

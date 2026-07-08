@@ -55,7 +55,7 @@ For any item flagged as stuck (2+ days, no triage), ask Tim to choose:
 - **Delegate** — note who to hand off to
 - **Drop** — close/archive it
 
-After triage decisions are made, stamp `last_triaged: YYYY-MM-DD` in the frontmatter of each triaged mission/issue file. Use `sed` or Edit to update the existing frontmatter block — add the field after `status:` if not present, update it if it is.
+After triage decisions are made, stamp each triaged item with today's date via `track set <issue|mission> <id> last_triaged=YYYY-MM-DD` — don't hand-edit the frontmatter.
 
 ### 5. Agree on Today's 3
 

@@ -40,12 +40,17 @@ track list -q stale=2 --json
 
 The CLI lives at `skills/tracker/track`; the repo's `bin/track` symlinks to it, so adding `bin/` to PATH exposes `track` everywhere. (`bin/` is a PATH change — put it in `.zshrc`/`.zprofile`, after `path_helper`.)
 
-## Create — the skills
+## Create and update
 
-- **`/issue`** — new issue in `{vault}/Issues/` with the next sequential ID.
-- **`/mission`** — new mission in `{vault}/Missions/` with the next sequential ID.
+`track new` and `track set` own the on-disk format — the ID scheme, filename padding, frontmatter schema, and body scaffold live in code, not in prose.
 
-These own the create-time format (frontmatter schema, ID scheme). Until `track new`/`track set` exist, creation and status edits go through the skills, not the CLI.
+```bash
+track new issue   "<title>" [--slug S] [--source S] [--link "Label|URL"] [--description TEXT]
+track new mission "<title>" [--slug S] [--link "Label|URL"] [--problem TEXT] [--goal TEXT]
+track set <issue|mission> <id> key=value ...   # e.g. status=resolved, last_triaged=2026-07-08
+```
+
+The **`/issue`** and **`/mission`** skills are thin wrappers: the agent supplies judgment (title, source, description) and calls `track new`. Status changes and `last_triaged` stamps go through `track set`. Nothing hand-edits frontmatter.
 
 ## Fetch a specific item
 
