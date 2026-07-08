@@ -11,7 +11,7 @@ Set up context and a worktree to work on the next slice of a mission.
 
 ### 1. Load the mission
 
-Find `{notes vault}/missions/NNNN-*.md` matching the ID or title provided. Read it to get:
+Resolve the mission file: for a numeric ID, `track path mission <id>` gives the path directly (or `track get mission <id>` to read it); for a title, find the matching `{notes vault}/Missions/NNNN-*.md`. Read it to get:
 - `plans:` — path to the plans folder (relative to `{notes vault}/`)
 - `## Progress` — what has already been completed
 

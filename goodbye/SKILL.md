@@ -58,7 +58,17 @@ Append to today's `{vault}/Daily Notes/YYYY-MM-DD.md`:
 - {item}
 ```
 
-### 5. Optional Slack draft
+### 5. Refresh TRMNL
+
+Re-push the daily note so the display reflects end-of-day task state:
+
+```bash
+python3 ~/dev/timhall/skills/trmnl/push_daily_note.py
+```
+
+Non-fatal — self-skips if the webhook UUID isn't configured. See `trmnl/README.md`.
+
+### 6. Optional Slack draft
 
 If anything significant was completed, ask: "Worth a Slack update?"
 
@@ -71,6 +81,6 @@ If yes, draft together using this format:
 
 Venue: project channel for major updates, DM to manager for smaller items. Tim posts via Slack MCP — never post autonomously.
 
-### 6. Close out
+### 7. Close out
 
 End with a clear signal that work is done. Everything unfinished is captured; nothing is left as a mental open loop.

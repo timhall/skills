@@ -26,21 +26,24 @@ After installing, add an `## Agent skills` section to `~/.claude/CLAUDE.md`:
 
 The skills read this at runtime — change it once and all skills pick it up.
 
+To use the `track` CLI, add `bin/` to your PATH (it's a PATH change, so put it in `.zshrc`/`.zprofile`, after macOS `path_helper`):
+
+```bash
+export PATH="$HOME/dev/timhall/skills/bin:$PATH"
+```
+
 ## Skills
 
-### `/issue`
+### Tracker — `/issue`, `/mission`, and the `track` CLI
 
-Create a new issue in `{notes vault}/issues/`. For bugs, investigations, and small self-contained work items.
+Everything for personal work tracking lives in `skills/tracker/` — the two create skills, the `track` query CLI, and the contract doc. See [`skills/tracker/README.md`](skills/tracker/README.md) for the full reference.
+
+- **`/issue`** — create a new issue in `{notes vault}/Issues/` (bugs, investigations, small items).
+- **`/mission`** — create a new mission in `{notes vault}/Missions/` (idea-to-delivery efforts).
+- **`track`** — read/query issues and missions instead of re-deriving globs: `track list -q status=open --json`, `track get mission 4`, `track path issue 18`.
 
 ```
 /issue Flicker when switching from Hex to Preview tab https://slack.com/...
-```
-
-### `/mission`
-
-Create a new mission in `{notes vault}/missions/`. For idea-to-delivery work items spanning design, planning, and implementation.
-
-```
 /mission Extract @postman/runtime.platform into its own package
 ```
 

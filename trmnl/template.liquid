@@ -1,0 +1,68 @@
+{% comment %}
+  TRMNL private-plugin markup for the daily dashboard (Full layout).
+  Paste into the plugin's Markup editor. Data arrives from push_daily_note.py as
+  merge_variables: date, week_label, week_goals[], tasks[{text,done}], done_count,
+  total_count, blocker, updated, stoic_text, stoic_author, reviews_waiting, my_prs,
+  weather{hi,lo,label,glyph,place}. Every section degrades gracefully if its data
+  is absent. Tweak freely in TRMNL's live preview.
+{% endcomment %}
+<div class="view view--full">
+  <div class="layout layout--col gap--small">
+
+    {% comment %} Top band: weekly goals + weather {% endcomment %}
+    <div class="columns">
+      <div class="column">
+        <span class="label label--underline">This Week &middot; {{ week_label }}</span>
+        {% if week_goals and week_goals.size > 0 %}
+          {% for goal in week_goals %}
+          <div class="item"><div class="content"><span class="value value--small">&#9679; {{ goal }}</span></div></div>
+          {% endfor %}
+        {% else %}
+          <span class="description">No weekly goals set</span>
+        {% endif %}
+      </div>
+      {% if weather %}
+      <div class="column column--center" style="max-width: 220px;">
+        <span class="value value--large">{{ weather.glyph }} {{ weather.hi }}&deg;</span>
+        <span class="description">{{ weather.lo }}&deg; &middot; {{ weather.label }}</span>
+        <span class="label">{{ weather.place }}</span>
+      </div>
+      {% endif %}
+    </div>
+
+    <hr class="border--h-2" />
+
+    {% comment %} Middle band: Today's 3 + Stoic quote {% endcomment %}
+    <div class="columns">
+      <div class="column">
+        <div class="markdown">
+          <span class="title">Today's 3</span>
+          <span class="description">{{ done_count }}/{{ total_count }} done &middot; {{ date }}</span>
+        </div>
+        {% for task in tasks %}
+        <div class="item">
+          <div class="content"><span class="title title--small">{% if task.done %}&#9746;{% else %}&#9744;{% endif %} {{ task.text }}</span></div>
+        </div>
+        {% endfor %}
+      </div>
+
+      {% if stoic_text %}
+      <div class="column" style="max-width: 300px;">
+        <span class="label label--underline">Stoic &middot; {{ date }}</span>
+        <div class="content"><span class="value value--small">&ldquo;{{ stoic_text }}&rdquo;</span></div>
+        <span class="label">&mdash; {{ stoic_author }}</span>
+      </div>
+      {% endif %}
+    </div>
+
+  </div>
+
+  <div class="title_bar">
+    <img class="image" src="https://usetrmnl.com/images/plugins/trmnl--render.svg" />
+    <span class="title">Daily Note</span>
+    <span class="instance">
+      {% if reviews_waiting %}Reviews: {{ reviews_waiting }} &middot; Your PRs: {{ my_prs }} &middot; {% endif %}
+      Blocked: {{ blocker }} &middot; {{ updated }}
+    </span>
+  </div>
+</div>

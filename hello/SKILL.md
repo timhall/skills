@@ -20,9 +20,10 @@ Run these steps in order. Ask one question at a time — this is a conversation,
 ### 1. Gather context (silently)
 
 - Read yesterday's daily note — note unchecked `- [ ]` items and the **Today's 3** section if present
-- Read all open missions and issues (frontmatter `status` field)
-  - Staleness: use `last_triaged` frontmatter if present, otherwise fall back to file mtime
-  - Flag anything not triaged in 2+ days
+- List active missions and issues via the `track` CLI (on PATH; see repo README):
+  - `track list -q type=issue -q status=open,investigating --json`
+  - `track list -q type=mission -q status=idea,planning,active,blocked --json`
+  - Each result carries `stale_days` (days since `last_triaged`, else file mtime). Flag anything with `stale_days >= 2` as stuck.
 - Run for each watched repo: `gh pr list --author @me --repo {repo} --json number,title,url,updatedAt,reviewDecision`
 - Run for each watched repo: `gh pr list --review-requested @me --repo {repo} --json number,title,url,updatedAt`
 - Watched repos: `postman-eng/unified-runtime-monorepo`, `postman-eng/postman-app`
@@ -60,7 +61,15 @@ After triage decisions are made, stamp `last_triaged: YYYY-MM-DD` in the frontma
 
 Based on the standup answers and triage, agree on max 3 focus tasks for today. Push back if Tim proposes more than 3 — WIP cap is intentional.
 
-### 6. Write to today's daily note
+### 6. Daily Stoic
+
+Ground the day in the Stoic reading — a deliberate, analog beat:
+
+> "Open *The Daily Stoic* to today's entry. What's the quote, and who said it?"
+
+Wait for Tim to open the book and enter it. Capture the quote and its attribution **verbatim as Tim types them** — do not paraphrase, summarize, or look the quote up yourself; the point is that Tim reads it. If Tim skips it, omit the section from the note.
+
+### 7. Write to today's daily note
 
 Append (or create) `{vault}/Daily Notes/YYYY-MM-DD.md`:
 
@@ -78,11 +87,27 @@ Append (or create) `{vault}/Daily Notes/YYYY-MM-DD.md`:
 
 **Triage decisions:**
 - {item} → {act/defer/delegate/drop}
+
+**Daily Stoic:**
+> {quote}
+> — {author}
 ```
+
+Omit the **Daily Stoic** block if Tim skipped step 6.
 
 The `- [ ]` items at the root level will be picked up by Rollover Daily Todos if unchecked at end of day.
 
-### 7. Optional Slack draft
+### 8. Push to TRMNL
+
+After the note is written, push Today's 3 to the TRMNL e-ink display:
+
+```bash
+python3 ~/dev/timhall/skills/trmnl/push_daily_note.py
+```
+
+Non-fatal — it self-skips if the webhook UUID isn't configured (`trmnl/uuid.txt`). See `trmnl/README.md` for one-time setup.
+
+### 9. Optional Slack draft
 
 Ask: "Anything worth a Slack update today?"
 

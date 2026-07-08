@@ -1,0 +1,236 @@
+#!/usr/bin/env python3
+"""track — list and query personal issues and missions from the notes vault.
+
+The markdown files are the source of truth; this only reads them.
+  $NOTES_VAULT (default ~/Documents/notes)
+    Issues/NNNN-slug.md     Missions/NNNN-slug.md
+Each file opens with flat YAML-ish frontmatter (scalars + inline [lists]) between
+--- fences. Block-style YAML (nested maps, multi-line lists) is not supported —
+the tracker frontmatter never uses it.
+
+Usage:
+  track list [-q key=val[,val2] ...] [--json]
+  track get  <issue|mission> <id> [--json]
+  track path <issue|mission> <id>
+
+Filters (repeatable -q; AND across keys, comma = OR within one key):
+  -q type=issue                 issue | mission            (default: both)
+  -q status=open,investigating  match any listed status
+  -q stale=2                    >= N days since last_triaged (else file mtime)
+  -q <frontmatter-key>=...      any field, e.g. source=slack, tags=infra
+String matches are case-insensitive. A list-valued field (e.g. tags) matches if
+any of its entries is listed.
+"""
+
+import argparse
+import datetime as dt
+import glob
+import json
+import os
+import sys
+
+VAULT = os.path.expanduser(os.environ.get("NOTES_VAULT") or "~/Documents/notes")
+SUBDIR = {"issue": "Issues", "mission": "Missions"}
+# Special filter keys handled by code rather than plain frontmatter matching.
+SPECIAL = {"type", "stale"}
+
+
+def parse_value(raw):
+    """One frontmatter value -> None | str | list[str]. Flat scalars only."""
+    v = raw.strip()
+    if v == "":
+        return None
+    if v.startswith("[") and v.endswith("]"):
+        inner = v[1:-1].strip()
+        if not inner:
+            return []
+        return [p.strip().strip('"').strip("'") for p in inner.split(",") if p.strip()]
+    if len(v) >= 2 and v[0] in "\"'" and v[-1] == v[0]:
+        return v[1:-1]
+    return v
+
+
+def split_frontmatter(text):
+    """(frontmatter dict, body after the closing fence). {} + full text if absent."""
+    lines = text.splitlines(keepends=True)
+    if not lines or lines[0].strip() != "---":
+        return {}, text
+    fm = {}
+    for i, line in enumerate(lines[1:], start=1):
+        if line.strip() == "---":
+            return fm, "".join(lines[i + 1:]).lstrip("\n")
+        key, _, val = line.partition(":")  # first colon; URLs keep their scheme
+        if _:
+            fm[key.strip()] = parse_value(val)
+    return fm, ""  # unterminated fence: treat all of it as frontmatter
+
+
+def parse_frontmatter(text):
+    return split_frontmatter(text)[0]
+
+
+def load_items(only_type=None):
+    items = []
+    types = [only_type] if only_type else SUBDIR
+    for typ in types:
+        pattern = os.path.join(VAULT, SUBDIR[typ], "*.md")
+        for path in sorted(glob.glob(pattern)):
+            try:
+                with open(path) as fh:
+                    fm = parse_frontmatter(fh.read())
+            except OSError:
+                continue
+            raw_id = fm.get("id")
+            try:
+                item_id = int(raw_id)
+            except (TypeError, ValueError):
+                item_id = None
+            items.append({
+                "type": typ,
+                "id": item_id,
+                "status": fm.get("status") or "",
+                "title": fm.get("title") or os.path.basename(path),
+                "path": path,
+                "stale_days": stale_days(fm, path),
+                "frontmatter": fm,
+            })
+    items.sort(key=lambda it: (it["type"], it["id"] if it["id"] is not None else 1 << 30))
+    return items
+
+
+def stale_days(fm, path):
+    """Days since last_triaged (frontmatter) or, failing that, file mtime."""
+    lt = fm.get("last_triaged")
+    ref = None
+    if isinstance(lt, str):
+        try:
+            ref = dt.datetime.strptime(lt.strip(), "%Y-%m-%d").date()
+        except ValueError:
+            ref = None
+    if ref is None:
+        try:
+            ref = dt.date.fromtimestamp(os.path.getmtime(path))
+        except OSError:
+            return None
+    return (dt.date.today() - ref).days
+
+
+def parse_filters(query_args):
+    """['status=a,b', 'stale=2'] -> {'status': {'a','b'}, 'stale': {'2'}}."""
+    filters = {}
+    for q in query_args or []:
+        if "=" not in q:
+            sys.exit(f"track: bad filter {q!r} — expected key=value")
+        key, _, val = q.partition("=")
+        key = key.strip().lower()
+        vals = {p.strip() for p in val.split(",") if p.strip()}
+        filters.setdefault(key, set()).update(vals)
+    return filters
+
+
+def matches(item, filters):
+    for key, wanted in filters.items():
+        if key == "type":
+            if item["type"] not in {w.lower() for w in wanted}:
+                return False
+        elif key == "stale":
+            try:
+                threshold = min(int(w) for w in wanted)
+            except ValueError:
+                sys.exit("track: stale filter needs an integer, e.g. stale=2")
+            if item["stale_days"] is None or item["stale_days"] < threshold:
+                return False
+        else:
+            field = item["frontmatter"].get(key)
+            if field is None:
+                return False
+            have = {str(v).lower() for v in (field if isinstance(field, list) else [field])}
+            if not (have & {w.lower() for w in wanted}):
+                return False
+    return True
+
+
+def cmd_list(args):
+    filters = parse_filters(args.query)
+    only = None
+    if filters.get("type") and len(filters["type"]) == 1:
+        only = next(iter(filters["type"])).lower()
+        if only not in SUBDIR:
+            sys.exit(f"track: unknown type {only!r} — use issue or mission")
+    items = [it for it in load_items(only) if matches(it, filters)]
+
+    if args.json:
+        print(json.dumps([{k: it[k] for k in
+                           ("type", "id", "status", "title", "path", "stale_days")}
+                          for it in items], indent=2))
+        return
+    if not items:
+        print("no matching items")
+        return
+    width = max(len(it["title"]) for it in items)
+    width = min(width, 60)
+    for it in items:
+        title = it["title"] if len(it["title"]) <= 60 else it["title"][:57] + "…"
+        stale = f"{it['stale_days']}d" if it["stale_days"] is not None else "-"
+        idcol = "-" if it["id"] is None else it["id"]
+        print(f"{it['type']:<7} {idcol:>4}  {it['status']:<13} {stale:>4}  {title:<{width}}")
+
+
+def resolve(type_arg, id_arg):
+    typ = type_arg.lower()
+    if typ not in SUBDIR:
+        sys.exit(f"track: unknown type {type_arg!r} — use issue or mission")
+    try:
+        want = int(id_arg)
+    except ValueError:
+        sys.exit(f"track: id must be an integer, got {id_arg!r}")
+    for it in load_items(typ):
+        if it["id"] == want:
+            return it
+    sys.exit(f"track: no {typ} with id {want}")
+
+
+def cmd_get(args):
+    it = resolve(args.type, args.id)
+    if args.json:
+        with open(it["path"]) as fh:
+            _, body = split_frontmatter(fh.read())
+        print(json.dumps({**{k: it[k] for k in
+                             ("type", "id", "status", "title", "path", "stale_days")},
+                          "frontmatter": it["frontmatter"], "body": body}, indent=2))
+    else:
+        with open(it["path"]) as fh:
+            sys.stdout.write(fh.read())
+
+
+def cmd_path(args):
+    print(resolve(args.type, args.id)["path"])
+
+
+def main():
+    ap = argparse.ArgumentParser(prog="track", description="Query issues and missions.")
+    sub = ap.add_subparsers(dest="cmd", required=True)
+
+    p_list = sub.add_parser("list", help="list items, optionally filtered")
+    p_list.add_argument("-q", "--query", action="append", metavar="key=val",
+                        help="filter (repeatable); comma = OR within a key")
+    p_list.add_argument("--json", action="store_true", help="emit JSON")
+    p_list.set_defaults(func=cmd_list)
+
+    p_get = sub.add_parser("get", help="print one item's file")
+    p_get.add_argument("type")
+    p_get.add_argument("id")
+    p_get.add_argument("--json", action="store_true", help="emit JSON (frontmatter+body)")
+    p_get.set_defaults(func=cmd_get)
+
+    p_path = sub.add_parser("path", help="print one item's file path")
+    p_path.add_argument("type")
+    p_path.add_argument("id")
+    p_path.set_defaults(func=cmd_path)
+
+    args = ap.parse_args()
+    args.func(args)
+
+
+if __name__ == "__main__":
+    main()
