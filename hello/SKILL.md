@@ -45,7 +45,6 @@ Ask each question, wait for Tim's answer before continuing:
 
 1. "What did you finish yesterday?"
 2. "What's your focus today?"
-3. "Anything blocking you?"
 
 ### 4. Triage stuck items
 
@@ -83,7 +82,6 @@ Append (or create) `{vault}/Daily Notes/YYYY-MM-DD.md`:
 
 **Standup:**
 - Done: {yesterday's done items}
-- Blocked: {any blockers}
 
 **Triage decisions:**
 - {item} → {act/defer/delegate/drop}
@@ -115,7 +113,7 @@ If yes, draft together using this format:
 ```
 • {what moved / what was done} → {link to PR/doc/artifact}
 • {what's next}
-• {any blockers or decisions needed}
+• {any decisions or asks}
 ```
 
 Venue: project channel for major updates, DM to manager for smaller items. Tim posts via Slack MCP — never post autonomously.

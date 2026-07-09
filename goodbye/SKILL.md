@@ -76,7 +76,7 @@ If yes, draft together using this format:
 ```
 • {what moved / what was done} → {link to PR/doc/artifact}
 • {what's next}
-• {any blockers or decisions needed}
+• {any decisions or asks}
 ```
 
 Venue: project channel for major updates, DM to manager for smaller items. Tim posts via Slack MCP — never post autonomously.

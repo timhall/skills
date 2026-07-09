@@ -5,12 +5,11 @@ Assembles a glanceable screen from several local sources and POSTs it to the TRM
 webhook as merge_variables. Called at the end of the /hello and /goodbye skills.
 
 Sources:
-  - Today's 3 + blocker   -> ~/Documents/notes/Daily Notes/YYYY-MM-DD.md
+  - Today's 3             -> ~/Documents/notes/Daily Notes/YYYY-MM-DD.md
   - Weekly goals          -> ~/Documents/notes/Weekly Goals.md (## Goals bullets)
   - Stoic quote of the day-> the note's "Daily Stoic" block if present, else
                              ./stoic_quotes.json (public-domain, indexed by day-of-year)
   - Review / PR counts    -> `gh` over WATCHED_REPOS
-  - Weather (hi/lo/cond)  -> open-meteo (no API key) for LOCATION
 
 Non-fatal by design: any missing/failed source is simply omitted; the whole thing
 exits 0 so it never interrupts a skill run.
@@ -28,7 +27,6 @@ import re
 import subprocess
 import sys
 import urllib.error
-import urllib.parse
 import urllib.request
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -45,53 +43,30 @@ UA = "trmnl-daily-note/1.0 (+https://github.com/timhall/skills)"
 # PR counts are summed across these repos (same as the /hello watch list).
 WATCHED_REPOS = ["postman-eng/unified-runtime-monorepo", "postman-eng/postman-app"]
 
-# Weather location. Coordinates so no geocoding call is needed. Update name+lat+lon
-# if you move. Units are Fahrenheit / mph.
-LOCATION = {"name": "Bon Air, VA", "lat": 37.5165, "lon": -77.5566}
-
-# open-meteo WMO weather codes -> (short label, glyph)
-WEATHER_CODES = {
-    0: ("Clear", "☀"), 1: ("Mostly clear", "🌤"), 2: ("Partly cloudy", "⛅"),
-    3: ("Overcast", "☁"), 45: ("Fog", "🌫"), 48: ("Fog", "🌫"),
-    51: ("Drizzle", "🌦"), 53: ("Drizzle", "🌦"), 55: ("Drizzle", "🌦"),
-    61: ("Rain", "🌧"), 63: ("Rain", "🌧"), 65: ("Heavy rain", "🌧"),
-    66: ("Freezing rain", "🌧"), 67: ("Freezing rain", "🌧"),
-    71: ("Snow", "🌨"), 73: ("Snow", "🌨"), 75: ("Heavy snow", "🌨"), 77: ("Snow", "🌨"),
-    80: ("Showers", "🌦"), 81: ("Showers", "🌦"), 82: ("Heavy showers", "🌧"),
-    85: ("Snow showers", "🌨"), 86: ("Snow showers", "🌨"),
-    95: ("Thunderstorm", "⛈"), 96: ("Thunderstorm", "⛈"), 99: ("Thunderstorm", "⛈"),
-}
-
-
-# --- shared helpers -------------------------------------------------------------
-
-def http_get_json(url, timeout=10):
-    req = urllib.request.Request(url, headers={"User-Agent": UA})
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
-        return json.loads(resp.read().decode("utf-8"))
-
 
 # --- data sources ---------------------------------------------------------------
 
 def parse_daily_note(text):
-    """Today's 3 (with checked state) + the blocker line from the Morning section."""
-    tasks, blocker, in_block = [], "", False
+    """Today's 3 from the Morning section.
+
+    Each task line is split on the first em-dash: the part before becomes the
+    `text` (title), the part after the `description`.
+    """
+    tasks, in_block = [], False
     for line in text.splitlines():
         s = line.strip()
         if re.match(r"^\*\*Today'?s 3:?\*\*", s, re.I):
             in_block = True
             continue
         if in_block:
-            m = re.match(r"^- \[([ xX])\]\s*(.+)$", s)
+            m = re.match(r"^- \[[ xX]\]\s*(.+)$", s)
             if m:
-                tasks.append({"text": m.group(2).strip(), "done": m.group(1).lower() == "x"})
+                title, _, desc = m.group(1).strip().partition("—")
+                tasks.append({"text": title.strip(), "description": desc.strip()})
                 continue
             if s and not s.startswith("- ["):
                 in_block = False
-        m = re.match(r"^-?\s*\*{0,2}Blocked:?\*{0,2}\s*(.+)$", s, re.I)
-        if m:
-            blocker = m.group(1).strip().rstrip("*").strip()
-    return tasks, blocker
+    return tasks
 
 
 def parse_stoic_from_note(text):
@@ -186,51 +161,30 @@ def gh_pr_counts():
     return (reviews, my_prs) if ok else (None, None)
 
 
-def fetch_weather():
-    lat, lon = LOCATION["lat"], LOCATION["lon"]
-    url = ("https://api.open-meteo.com/v1/forecast"
-           f"?latitude={lat}&longitude={lon}"
-           "&daily=temperature_2m_max,temperature_2m_min,weather_code"
-           "&temperature_unit=fahrenheit&wind_speed_unit=mph"
-           "&timezone=auto&forecast_days=1")
-    try:
-        data = http_get_json(url)
-        daily = data["daily"]
-        code = int(daily["weather_code"][0])
-        label, glyph = WEATHER_CODES.get(code, ("", ""))
-        return {
-            "hi": round(daily["temperature_2m_max"][0]),
-            "lo": round(daily["temperature_2m_min"][0]),
-            "label": label,
-            "glyph": glyph,
-            "place": LOCATION["name"],
-        }
-    except (urllib.error.URLError, KeyError, IndexError, ValueError, TimeoutError):
-        return None
-
-
 # --- payload + send -------------------------------------------------------------
 
-def build_payload(date_obj, tasks, blocker, goals, stoic, pr_counts, weather):
+def week_range_label(date_obj):
+    """Sunday-Saturday range containing date_obj, e.g. 'July 5-11' or 'July 30 - Aug 2'."""
+    start = date_obj - dt.timedelta(days=(date_obj.weekday() + 1) % 7)  # back to Sunday
+    end = start + dt.timedelta(days=6)
+    if start.month == end.month:
+        return f"{start.strftime('%B')} {start.day}-{end.day}"
+    return f"{start.strftime('%b')} {start.day} - {end.strftime('%b')} {end.day}"
+
+
+def build_payload(date_obj, tasks, goals, stoic, pr_counts):
     reviews, my_prs = pr_counts
     mv = {
         "date": f"{date_obj.strftime('%A · %b')} {date_obj.day}",
-        "week_label": f"Wk {date_obj.isocalendar()[1]}",
+        "week_label": week_range_label(date_obj),
         "week_goals": goals,
         "tasks": tasks,
-        "done_count": sum(1 for t in tasks if t["done"]),
-        "total_count": len(tasks),
-        "blocker": blocker or "—",
-        "updated": dt.datetime.now().strftime("%-I:%M %p"),
     }
     if stoic:
         mv["stoic_text"] = stoic["text"]
-        mv["stoic_author"] = stoic["author"]
     if reviews is not None:
         mv["reviews_waiting"] = reviews
         mv["my_prs"] = my_prs
-    if weather:
-        mv["weather"] = weather
     return {"merge_variables": mv}
 
 
@@ -285,7 +239,7 @@ def main():
         print(f"No daily note at {note_path} — nothing to push.", file=sys.stderr)
         return 0
 
-    tasks, blocker = parse_daily_note(note_text)
+    tasks = parse_daily_note(note_text)
     if not tasks:
         print(f"No Today's 3 found in {note_path} — nothing to push.", file=sys.stderr)
         return 0
@@ -295,9 +249,8 @@ def main():
     # bundled day-of-year quote when the note has no Daily Stoic block.
     stoic = parse_stoic_from_note(note_text) or stoic_for_day(date_obj)
     pr_counts = gh_pr_counts()
-    weather = fetch_weather()
 
-    payload = build_payload(date_obj, tasks, blocker, goals, stoic, pr_counts, weather)
+    payload = build_payload(date_obj, tasks, goals, stoic, pr_counts)
 
     if args.dry_run:
         print(json.dumps(payload, indent=2, ensure_ascii=False))
@@ -315,9 +268,8 @@ def main():
         extras = []
         if "stoic_text" in mv: extras.append("stoic")
         if "reviews_waiting" in mv: extras.append(f"{mv['reviews_waiting']} reviews")
-        if "weather" in mv: extras.append(f"{mv['weather']['hi']}°/{mv['weather']['lo']}°")
         if goals: extras.append(f"{len(goals)} week goals")
-        print(f"TRMNL push OK ({status}): {mv['done_count']}/{mv['total_count']} tasks"
+        print(f"TRMNL push OK ({status}): {len(mv['tasks'])} tasks"
               + (f" · {', '.join(extras)}" if extras else ""))
     except urllib.error.HTTPError as e:
         if e.code == 429:

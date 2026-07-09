@@ -1,6 +1,6 @@
 # trmnl — daily note on a TRMNL display
 
-Pushes the **Today's 3** and blocker line from the Obsidian daily note
+Pushes the **Today's 3** from the Obsidian daily note
 (`~/Documents/notes/Daily Notes/YYYY-MM-DD.md`) to a [TRMNL](https://usetrmnl.com)
 e-ink display via a private-plugin webhook. Called automatically at the end of the
 `/hello` and `/goodbye` skills.
@@ -42,8 +42,6 @@ The script POSTs `{"merge_variables": {...}}` with:
 | `date` | `Tuesday · Jul 7` |
 | `tasks` | `[{"text": "Finish #0036", "done": false}, …]` |
 | `done_count` / `total_count` | `1` / `3` |
-| `blocker` | `nothing` (or `—` if none found) |
-| `updated` | `9:15 AM` |
 
 ## Limits (from TRMNL docs)
 
