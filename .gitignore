@@ -1,6 +1,7 @@
 .agents/
 skills-lock.json
 trmnl/uuid.txt
+.mcp.json
 
 node_modules/
 __pycache__
