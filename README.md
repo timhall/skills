@@ -102,10 +102,14 @@ End-of-day shutdown ritual. Captures what got done, surfaces open loops, flags c
 
 The case law behind the comment conventions in `~/.claude/CLAUDE.md` — how to decide whether a comment earns its place. Invoke explicitly during a comment or review pass; it doesn't trigger on its own.
 
-### `/slow-mode`
+### Pair programming — `/driver` and `/navigator`
 
-Slows an AI-assisted coding session down: stops for confirmation after each step, explains tradeoffs, asks before naming things, and avoids autonomous looping. Invoke at the start of a session.
+Pairing styles live in `skills/pair-programming/`, one skill per style. The command names the role *the agent* takes. See [`skills/pair-programming/README.md`](skills/pair-programming/README.md) for the full taxonomy and the unbuilt slots (tour guide, ping pong).
+
+- **`/driver`** — the agent drives, you navigate. It writes at a deliberate pace, surfacing names and forks as it goes, and never loops autonomously. (Formerly `/slow-mode`, recalibrated: the original was written for learners, so the ask-permission rules became surface-the-decision rules.)
+- **`/navigator`** — you drive, the agent navigates. You write the code; it re-reads what landed, spots defects, holds the codebase map, prods edge cases, and offers the surrounding work. One keyboard team: it doesn't edit unless you hand it over.
 
 ```
-/slow-mode
+/driver
+/navigator
 ```
