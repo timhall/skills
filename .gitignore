@@ -2,6 +2,9 @@
 skills-lock.json
 trmnl/uuid.txt
 .mcp.json
+.claude/skills/
+.claude/settings.local.json
+.claude/.settings-security-marker
 
 node_modules/
 __pycache__

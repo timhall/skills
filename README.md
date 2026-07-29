@@ -14,23 +14,50 @@ Or from a local clone:
 npx skills add ~/dev/timhall/skills
 ```
 
+If you're actively developing skills in this repo rather than just using them, skip `npx skills add` on your own clone. It materializes copies that drift from source, and with a broad agent scope it can litter your home directory with per-tool directories for agents you don't use. Symlink each skill directly instead:
+
+```bash
+ln -s ~/dev/timhall/skills/goodbye ~/.claude/skills/goodbye
+```
+
+No cache, no lockfile, no staleness.
+
 ## Setup
 
-After installing, add an `## Agent skills` section to `~/.claude/CLAUDE.md`:
+After installing, seed your global instructions. On a new machine, copy the sections from [`system-instructions.md`](system-instructions.md) into `~/.claude/CLAUDE.md` and fill in the machine-specific paths. At minimum you need an `# Agent skills` section — the skills read it at runtime, so changing a path once there updates all of them:
 
 ```markdown
-## Agent skills
+# Agent skills
 
 - **Notes vault**: `~/Documents/notes`
 ```
-
-The skills read this at runtime — change it once and all skills pick it up.
 
 To use the `track` CLI, add `bin/` to your PATH (it's a PATH change, so put it in `.zshrc`/`.zprofile`, after macOS `path_helper`):
 
 ```bash
 export PATH="$HOME/dev/timhall/skills/bin:$PATH"
 ```
+
+## Settings
+
+Claude Code merges permission and config settings from several files. Precedence, highest to lowest:
+
+1. `<project>/.claude/settings.local.json` — personal, per-project. Gitignored. "Always allow" clicks made inside a project land here.
+2. `<project>/.claude/settings.json` — per-project, committed and shared with a team.
+3. `~/.claude/settings.local.json` — personal, applies everywhere, not shared. "Always allow" clicks made outside any project land here.
+4. `~/.claude/settings.json` — global baseline. Portable (sync via dotfiles); the durable curated list.
+
+Rule of thumb: **`settings.json` = deliberate and durable; `settings.local.json` = machine-local scratch that fills up automatically.** Keep the curated allowlist (build tools, read-only MCP tools, trusted `WebFetch` domains) in `settings.json`; let the `.local.json` files collect one-offs, and prune them periodically — mis-parsed grants like `Bash(done)` or literal file paths accumulate there.
+
+Where a given grant belongs:
+
+- Cross-project and stable, approved constantly → `~/.claude/settings.json`
+- Needed by only one repo → that repo's `.claude/settings.local.json`
+- Shared with a team for one repo → that repo's committed `.claude/settings.json`
+
+Permission pattern forms: `Bash(cmd:*)` (prefix — any args), `Bash(cmd)` (exact), `WebFetch(domain:example.com)`, or a full MCP tool name like `mcp__server__tool`. Never blanket-allow arbitrary code execution (`Bash(node:*)`, `Bash(python3:*)`, sandbox `exec`, etc.) — grant the narrow read-only subcommands instead.
+
+The same global-vs-local split applies to instructions: durable personal preferences go in `~/.claude/CLAUDE.md` (seed it from [`system-instructions.md`](system-instructions.md)); per-repo guidance goes in that repo's `CLAUDE.md` or `AGENTS.md`, kept short and linking out to detail rather than inlining it.
 
 ## Skills
 
@@ -69,4 +96,16 @@ End-of-day shutdown ritual. Captures what got done, surfaces open loops, flags c
 
 ```
 /goodbye
+```
+
+### `code-like-tim`
+
+The case law behind the comment conventions in `~/.claude/CLAUDE.md` — how to decide whether a comment earns its place. Invoke explicitly during a comment or review pass; it doesn't trigger on its own.
+
+### `/slow-mode`
+
+Slows an AI-assisted coding session down: stops for confirmation after each step, explains tradeoffs, asks before naming things, and avoids autonomous looping. Invoke at the start of a session.
+
+```
+/slow-mode
 ```

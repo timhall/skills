@@ -64,9 +64,9 @@ Based on the standup answers and triage, agree on max 3 focus tasks for today. P
 
 Ground the day in the Stoic reading — a deliberate, analog beat:
 
-> "Open *The Daily Stoic* to today's entry. What's the quote, and who said it?"
+> "Open *The Daily Stoic* to today's entry. What's the quote?"
 
-Wait for Tim to open the book and enter it. Capture the quote and its attribution **verbatim as Tim types them** — do not paraphrase, summarize, or look the quote up yourself; the point is that Tim reads it. If Tim skips it, omit the section from the note.
+Wait for Tim to open the book and enter it. Capture the quote **verbatim as Tim types it** — do not paraphrase, summarize, or look the quote up yourself; the point is that Tim reads it. Don't ask for the attribution (TRMNL doesn't show it). If Tim skips it, omit the section from the note.
 
 ### 7. Write to today's daily note
 
@@ -88,7 +88,6 @@ Append (or create) `{vault}/Daily Notes/YYYY-MM-DD.md`:
 
 **Daily Stoic:**
 > {quote}
-> — {author}
 ```
 
 Omit the **Daily Stoic** block if Tim skipped step 6.
