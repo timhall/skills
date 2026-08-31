@@ -61,22 +61,24 @@ The same global-vs-local split applies to instructions: durable personal prefere
 
 ## Skills
 
-### Tracker — `/issue`, `/mission`, and the `track` CLI
+### Tracker — `/issue`, `/mission`, `/plan`, and the `track` CLI
 
-Everything for personal work tracking lives in `skills/tracker/` — the two create skills, the `track` query CLI, and the contract doc. See [`skills/tracker/README.md`](skills/tracker/README.md) for the full reference.
+Everything for personal work tracking lives in `skills/tracker/` — the create skills, the `track` query CLI, and the contract doc. The contract defines the model (issue, mission, task, plan) and is the thing to read first. See [`skills/tracker/README.md`](skills/tracker/README.md) for the full reference.
 
 - **`/issue`** — create a new issue in `{notes vault}/Issues/` (bugs, investigations, small items).
 - **`/mission`** — create a new mission in `{notes vault}/Missions/` (idea-to-delivery efforts).
+- **`/plan`** — create a plan of tasks for one issue in `{notes vault}/Plans/`, keyed to a local issue (`/plan 50`) or an external ticket (`/plan APICLIENT-4053`).
 - **`track`** — read/query issues and missions instead of re-deriving globs: `track list -q status=open --json`, `track get mission 4`, `track path issue 18`.
 
 ```
 /issue Flicker when switching from Hex to Preview tab https://slack.com/...
 /mission Extract @postman/runtime.platform into its own package
+/plan APICLIENT-4053
 ```
 
 ### `/work`
 
-Step through a mission's plan slices with managed context and worktree isolation. Reads the mission's `plans/` folder, identifies the next slice, and opens a worktree to work in.
+Step through a plan's tasks with managed context and worktree isolation. Takes an issue id (`/work 50`), a mission id (`/work M20`), or an external ticket key (`/work APICLIENT-4062`); resolves the plan by folder convention, picks the next unblocked task, and opens a worktree to work in.
 
 ```
 /work 4

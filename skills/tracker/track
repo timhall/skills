@@ -3,20 +3,25 @@
 
 The markdown files are the source of truth; this only reads them.
   $NOTES_VAULT (default ~/Documents/notes)
-    Issues/NNNN-slug.md     Missions/NNNN-slug.md
+    Issues/NNNN-slug.md     Missions/NNNN-slug.md     Plans/<key>/plan.md
+
+A plan's folder name is its key and its link to the work it plans: NNNN-slug is
+issue NNNN, MNNNN-slug is mission NNNN, anything else (APICLIENT-4062) is an
+external ticket. Only <key>/plan.md counts as a plan; folders holding just
+design docs are reference material, not plans.
 Each file opens with flat YAML-ish frontmatter (scalars + inline [lists]) between
 --- fences. Block-style YAML (nested maps, multi-line lists) is not supported —
 the tracker frontmatter never uses it.
 
 Usage:
   track list [-q key=val[,val2] ...] [--json]
-  track get  <issue|mission> <id> [--json]
-  track path <issue|mission> <id>
+  track get  <issue|mission> <id> [--json]   |  track get  plan <key>
+  track path <issue|mission> <id>            |  track path plan <key>
   track new  issue|mission "<title>" [--slug S] [--source S] [--link [Label|]URL] ...
   track set  <issue|mission> <id> key=value ...
 
 Filters (repeatable -q; AND across keys, comma = OR within one key):
-  -q type=issue                 issue | mission            (default: both)
+  -q type=issue                 issue | mission | plan     (default: all)
   -q status=open,investigating  match any listed status
   -q stale=2                    >= N days since last_triaged (else file mtime)
   -q <frontmatter-key>=...      any field, e.g. source=slack, tags=infra
@@ -40,6 +45,8 @@ import urllib.parse
 
 VAULT = os.path.expanduser(os.environ.get("NOTES_VAULT") or "~/Documents/notes")
 SUBDIR = {"issue": "Issues", "mission": "Missions"}
+PLANS = "Plans"
+TYPES = (*SUBDIR, "plan")
 
 
 def parse_value(raw):
@@ -76,8 +83,53 @@ def parse_frontmatter(text):
     return split_frontmatter(text)[0]
 
 
+def plan_owner(key):
+    """Folder key -> which work the plan belongs to. Slug is decoration."""
+    m = re.match(r"^M(\d{4})(?:-|$)", key)
+    if m:
+        return {"type": "mission", "id": int(m.group(1)), "ref": key}
+    m = re.match(r"^(\d{4})(?:-|$)", key)
+    if m:
+        return {"type": "issue", "id": int(m.group(1)), "ref": key}
+    return {"type": "external", "id": None, "ref": key}
+
+
+def count_tasks(body):
+    """Inline checkbox tasks -> (done, total). Progress through a plan."""
+    total = len(re.findall(r"^\s*- \[[ xX]\]", body, re.M))
+    done = len(re.findall(r"^\s*- \[[xX]\]", body, re.M))
+    return done, total
+
+
+def load_plans():
+    items = []
+    for path in sorted(glob.glob(os.path.join(VAULT, PLANS, "*", "plan.md"))):
+        key = os.path.basename(os.path.dirname(path))
+        try:
+            with open(path) as fh:
+                fm, body = split_frontmatter(fh.read())
+        except OSError:
+            continue
+        owner = plan_owner(key)
+        items.append({
+            "type": "plan",
+            "id": owner["id"],
+            "key": key,
+            "owner": owner,
+            "status": fm.get("status") or "",
+            "title": fm.get("title") or key,
+            "path": path,
+            "stale_days": stale_days(fm, path),
+            "tasks": dict(zip(("done", "total"), count_tasks(body))),
+            "frontmatter": fm,
+        })
+    return items
+
+
 def load_items(only_type=None):
     items = []
+    if only_type == "plan":
+        return sort_items(load_plans())
     types = [only_type] if only_type else SUBDIR
     for typ in types:
         pattern = os.path.join(VAULT, SUBDIR[typ], "*.md")
@@ -101,7 +153,15 @@ def load_items(only_type=None):
                 "stale_days": stale_days(fm, path),
                 "frontmatter": fm,
             })
-    items.sort(key=lambda it: (it["type"], it["id"] if it["id"] is not None else 1 << 30))
+    if only_type is None:
+        items += load_plans()
+    return sort_items(items)
+
+
+def sort_items(items):
+    items.sort(key=lambda it: (it["type"],
+                               it["id"] if it["id"] is not None else 1 << 30,
+                               it.get("key") or ""))
     return items
 
 
@@ -162,31 +222,67 @@ def cmd_list(args):
     only = None
     if filters.get("type") and len(filters["type"]) == 1:
         only = next(iter(filters["type"])).lower()
-        if only not in SUBDIR:
-            sys.exit(f"track: unknown type {only!r} — use issue or mission")
+        if only not in TYPES:
+            sys.exit(f"track: unknown type {only!r} — use {', '.join(TYPES)}")
     items = [it for it in load_items(only) if matches(it, filters)]
 
     if args.json:
-        print(json.dumps([{k: it[k] for k in
-                           ("type", "id", "status", "title", "path", "stale_days")}
+        keys = ("type", "id", "status", "title", "path", "stale_days")
+        print(json.dumps([{**{k: it[k] for k in keys},
+                           **({"key": it["key"], "owner": it["owner"],
+                               "tasks": it["tasks"]} if it["type"] == "plan" else {})}
                           for it in items], indent=2))
         return
     if not items:
         print("no matching items")
         return
-    width = max(len(it["title"]) for it in items)
-    width = min(width, 60)
+    def ident(it):
+        if it["type"] == "plan":
+            return it["key"]
+        return "-" if it["id"] is None else str(it["id"])
+
+    width = min(max(len(it["title"]) for it in items), 60)
+    idw = max(len(ident(it)) for it in items)
     for it in items:
         title = it["title"] if len(it["title"]) <= 60 else it["title"][:57] + "…"
         stale = f"{it['stale_days']}d" if it["stale_days"] is not None else "-"
-        idcol = "-" if it["id"] is None else it["id"]
-        print(f"{it['type']:<7} {idcol:>4}  {it['status']:<13} {stale:>4}  {title:<{width}}")
+        suffix = ""
+        if it["type"] == "plan" and it["tasks"]["total"]:
+            suffix = f"  [{it['tasks']['done']}/{it['tasks']['total']}]"
+        print(f"{it['type']:<7} {ident(it):>{idw}}  {it['status']:<13} "
+              f"{stale:>4}  {title:<{width}}{suffix}".rstrip())
+
+
+def resolve_plan(key_arg):
+    """Match a plan by exact key, or by owner id ('50', 'M23') — slug optional."""
+    plans = load_plans()
+    want = key_arg.strip()
+    for it in plans:
+        if it["key"].lower() == want.lower():
+            return it
+    m = re.match(r"^(M?)(\d+)$", want, re.I)
+    if m:
+        otype = "mission" if m.group(1) else "issue"
+        oid = int(m.group(2))
+        hits = [it for it in plans
+                if it["owner"]["type"] == otype and it["owner"]["id"] == oid]
+        if len(hits) == 1:
+            return hits[0]
+        if len(hits) > 1:
+            sys.exit("track: ambiguous plan key {!r} — matches {}".format(
+                want, ", ".join(it["key"] for it in hits)))
+    starts = [it for it in plans if it["key"].lower().startswith(want.lower())]
+    if len(starts) == 1:
+        return starts[0]
+    sys.exit(f"track: no plan matching {key_arg!r}")
 
 
 def resolve(type_arg, id_arg):
     typ = type_arg.lower()
+    if typ == "plan":
+        return resolve_plan(id_arg)
     if typ not in SUBDIR:
-        sys.exit(f"track: unknown type {type_arg!r} — use issue or mission")
+        sys.exit(f"track: unknown type {type_arg!r} — use {', '.join(TYPES)}")
     try:
         want = int(id_arg)
     except ValueError:
@@ -202,8 +298,11 @@ def cmd_get(args):
     if args.json:
         with open(it["path"]) as fh:
             _, body = split_frontmatter(fh.read())
+        extra = ({"key": it["key"], "owner": it["owner"], "tasks": it["tasks"]}
+                 if it["type"] == "plan" else {})
         print(json.dumps({**{k: it[k] for k in
                              ("type", "id", "status", "title", "path", "stale_days")},
+                          **extra,
                           "frontmatter": it["frontmatter"], "body": body}, indent=2))
     else:
         with open(it["path"]) as fh:
@@ -262,7 +361,7 @@ def cmd_new(args):
                     ("## Investigation", ""), ("## Resolution", "")]
     else:
         fm = [f"id: {new_id}", f'title: "{title}"', "status: idea",
-              f"created: {created}", "plans:", "jira:", "tags: []"]
+              f"created: {created}", "jira:", "tags: []"]
         sections = [("## Problem", (args.problem or "").strip()),
                     ("## Goal", (args.goal or "").strip()),
                     ("## Progress", ""), ("## Resolution", "")]
@@ -335,13 +434,13 @@ def main():
     p_list.set_defaults(func=cmd_list)
 
     p_get = sub.add_parser("get", help="print one item's file")
-    p_get.add_argument("type")
+    p_get.add_argument("type", help="issue | mission | plan")
     p_get.add_argument("id")
     p_get.add_argument("--json", action="store_true", help="emit JSON (frontmatter+body)")
     p_get.set_defaults(func=cmd_get)
 
     p_path = sub.add_parser("path", help="print one item's file path")
-    p_path.add_argument("type")
+    p_path.add_argument("type", help="issue | mission | plan")
     p_path.add_argument("id")
     p_path.set_defaults(func=cmd_path)
 
