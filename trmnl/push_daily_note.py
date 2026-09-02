@@ -6,9 +6,7 @@ webhook as merge_variables. Called at the end of the /hello and /goodbye skills.
 
 Sources:
   - Today's 3             -> ~/Documents/notes/Daily Notes/YYYY-MM-DD.md
-  - Weekly goals          -> ~/Documents/notes/Weekly Goals.md (## Goals bullets)
-  - Stoic quote of the day-> the note's "Daily Stoic" block if present, else
-                             ./stoic_quotes.json (public-domain, indexed by day-of-year)
+  - Stoic quote of the day-> the note's "Daily Stoic" block, added by the /hello skill
   - Review / PR counts    -> `gh` over WATCHED_REPOS
 
 Non-fatal by design: any missing/failed source is simply omitted; the whole thing
@@ -32,8 +30,6 @@ import urllib.request
 HERE = os.path.dirname(os.path.abspath(__file__))
 VAULT = os.path.expanduser("~/Documents/notes")
 NOTE_DIR = os.path.join(VAULT, "Daily Notes")
-WEEKLY_GOALS_FILE = os.path.join(VAULT, "Weekly Goals.md")
-STOIC_FILE = os.path.join(HERE, "stoic_quotes.json")
 UUID_FILE = os.path.join(HERE, "uuid.txt")
 
 ENDPOINT = "https://trmnl.com/api/custom_plugins/{}"
@@ -103,39 +99,6 @@ def parse_stoic_from_note(text):
     return {"text": quote, "author": author}
 
 
-def read_weekly_goals(max_goals=3):
-    """Bullets under the '## Goals' heading of Weekly Goals.md."""
-    try:
-        with open(WEEKLY_GOALS_FILE) as fh:
-            text = fh.read()
-    except FileNotFoundError:
-        return []
-    goals, in_goals = [], False
-    for line in text.splitlines():
-        s = line.strip()
-        if re.match(r"^#{1,6}\s+Goals\b", s, re.I):
-            in_goals = True
-            continue
-        if in_goals:
-            if s.startswith("#"):  # next heading ends the section
-                break
-            m = re.match(r"^[-*]\s+(.+)$", s)
-            if m:
-                goals.append(m.group(1).strip())
-    return goals[:max_goals]
-
-
-def stoic_for_day(date_obj):
-    try:
-        with open(STOIC_FILE) as fh:
-            quotes = json.load(fh)
-    except (FileNotFoundError, json.JSONDecodeError):
-        return None
-    if not quotes:
-        return None
-    return quotes[date_obj.timetuple().tm_yday % len(quotes)]
-
-
 def gh_pr_counts():
     """(#PRs awaiting my review, #my open PRs) summed across WATCHED_REPOS; None on failure."""
     reviews = my_prs = 0
@@ -163,21 +126,10 @@ def gh_pr_counts():
 
 # --- payload + send -------------------------------------------------------------
 
-def week_range_label(date_obj):
-    """Sunday-Saturday range containing date_obj, e.g. 'July 5-11' or 'July 30 - Aug 2'."""
-    start = date_obj - dt.timedelta(days=(date_obj.weekday() + 1) % 7)  # back to Sunday
-    end = start + dt.timedelta(days=6)
-    if start.month == end.month:
-        return f"{start.strftime('%B')} {start.day}-{end.day}"
-    return f"{start.strftime('%b')} {start.day} - {end.strftime('%b')} {end.day}"
-
-
-def build_payload(date_obj, tasks, goals, stoic, pr_counts):
+def build_payload(date_obj, tasks, stoic, pr_counts):
     reviews, my_prs = pr_counts
     mv = {
         "date": f"{date_obj.strftime('%A · %b')} {date_obj.day}",
-        "week_label": week_range_label(date_obj),
-        "week_goals": goals,
         "tasks": tasks,
     }
     if stoic:
@@ -244,13 +196,10 @@ def main():
         print(f"No Today's 3 found in {note_path} — nothing to push.", file=sys.stderr)
         return 0
 
-    goals = read_weekly_goals()
-    # Prefer the quote Tim entered in the note this morning; fall back to the
-    # bundled day-of-year quote when the note has no Daily Stoic block.
-    stoic = parse_stoic_from_note(note_text) or stoic_for_day(date_obj)
+    stoic = parse_stoic_from_note(note_text)
     pr_counts = gh_pr_counts()
 
-    payload = build_payload(date_obj, tasks, goals, stoic, pr_counts)
+    payload = build_payload(date_obj, tasks, stoic, pr_counts)
 
     if args.dry_run:
         print(json.dumps(payload, indent=2, ensure_ascii=False))
@@ -268,7 +217,6 @@ def main():
         extras = []
         if "stoic_text" in mv: extras.append("stoic")
         if "reviews_waiting" in mv: extras.append(f"{mv['reviews_waiting']} reviews")
-        if goals: extras.append(f"{len(goals)} week goals")
         print(f"TRMNL push OK ({status}): {len(mv['tasks'])} tasks"
               + (f" · {', '.join(extras)}" if extras else ""))
     except urllib.error.HTTPError as e:

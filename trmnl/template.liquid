@@ -1,6 +1,6 @@
 {% comment %} TRMNL private-plugin markup for the daily dashboard (Full layout). Paste into the plugin's Markup editor.
-Data arrives from push_daily_note.py as merge_variables: date, week_label, week_goals[], tasks[{text,description}],
-stoic_text, reviews_waiting, my_prs. Every section degrades gracefully if its data is absent. Tweak freely in TRMNL's
+Data arrives from push_daily_note.py as merge_variables: date, tasks[{text,description}], stoic_text,
+reviews_waiting, my_prs. Every section degrades gracefully if its data is absent. Tweak freely in TRMNL's
 live preview. The script splits each task on the em-dash: text is the part before, description the part after. {%
 endcomment %} {%- capture svg_logo -%}
 <svg
@@ -41,25 +41,13 @@ endcomment %} {%- capture svg_logo -%}
     </div>
   </div>
 
-  {% comment %} Bottom band: this week + stoic quote, split {% endcomment %}
-  <div class="columns">
-    <div class="column">
-      <span class="label label--underline">This Week &middot; {{ week_label }}</span>
-      {% if week_goals and week_goals.size > 0 %} {% for goal in week_goals %}
-      <div class="item">
-        <div class="content"><span class="description description--small">&#9679; {{ goal }}</span></div>
-      </div>
-      {% endfor %} {% else %}
-      <span class="description">No weekly goals set</span>
-      {% endif %}
-    </div>
-    {% if stoic_text %}
-    <div class="column">
-      <span class="label label--underline">Daily Stoic</span>
-      <div class="content">{{ stoic_text }}</div>
-    </div>
-    {% endif %}
+  {% comment %} Bottom band: stoic quote, full width {% endcomment %}
+  {% if stoic_text %}
+  <div class="flex flex--col flex--left">
+    <span class="label label--underline">Daily Stoic</span>
+    <div class="content">{{ stoic_text }}</div>
   </div>
+  {% endif %}
 </div>
 
 <div class="title_bar">
