@@ -1,6 +1,6 @@
 ---
 name: code-like-tim
-description: Tim's personal coding conventions — how he decides what earns a place in the code, starting with comments. Use when writing or reviewing code or comments in any of Tim's projects, when deciding whether a comment should exist, when trimming or cutting comments, or during a comment or review pass. Pairs with the always-on rules in ~/.claude/CLAUDE.md.
+description: Tim's personal coding conventions — how he decides what earns a place in the code, starting with comments. Use when writing or reviewing code or comments in any of Tim's projects, when deciding whether a comment should exist, when trimming or cutting comments, or during a comment or review pass. Pairs with the always-on rules in ~/.claude/CLAUDE.md and with write-like-tim.
 ---
 
 # Code like Tim
@@ -8,6 +8,10 @@ description: Tim's personal coding conventions — how he decides what earns a p
 This is the case law behind the always-on rules in `~/.claude/CLAUDE.md`. CLAUDE.md
 is the short law; this skill holds the reasoning and worked examples so the judgment
 is reproducible, not just the verdict. It grows as Tim rules on more cases.
+
+This skill rules on *whether* a comment earns a place. Once it does, *how it's
+worded* is the general terseness standard — see `write-like-tim`, which in turn
+pairs with `simple-english` for clarity.
 
 ## Comments
 
@@ -42,10 +46,11 @@ If a comment isn't doing one of those, cut it.
 
 ### Brevity
 
-One or two lines. State the constraint, not the narrative. Rationale, history, and
-ticket context belong in the PR body or the issue — **never** in the diff. And never
-reference internal trackers (issue/mission numbers, "defect C", review labels) in
-code, tests, commits, or PRs.
+One or two lines — see `write-like-tim` for the general cut order that gets you
+there. Rationale, history, and ticket context belong in the PR body or the issue —
+**never** in the diff. And never reference internal trackers (issue/mission numbers,
+"defect C", review labels) in code, tests, commits, or PRs — see CLAUDE.md's "Never
+leak internal trackers" rule.
 
 ### Worked examples
 

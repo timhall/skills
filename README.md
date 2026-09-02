@@ -38,6 +38,12 @@ To use the `track` CLI, add `bin/` to your PATH (it's a PATH change, so put it i
 export PATH="$HOME/dev/timhall/skills/bin:$PATH"
 ```
 
+`write-like-tim` pairs with [`simple-english`](https://github.com/AminBlg/SimpleEnglish), a separate skill not in this repo. It's optional — `write-like-tim` skips that pass if it's not installed — but to get it:
+
+```bash
+npx skills add AminBlg/SimpleEnglish
+```
+
 ## Settings
 
 Claude Code merges permission and config settings from several files. Precedence, highest to lowest:
@@ -100,9 +106,9 @@ End-of-day shutdown ritual. Captures what got done, surfaces open loops, flags c
 /goodbye
 ```
 
-### `code-like-tim`
+### `code-like-tim` and `write-like-tim`
 
-The case law behind the comment conventions in `~/.claude/CLAUDE.md` — how to decide whether a comment earns its place. Invoke explicitly during a comment or review pass; it doesn't trigger on its own.
+The case law behind `~/.claude/CLAUDE.md`'s comment and Length rules. `code-like-tim` decides whether a comment earns its place; `write-like-tim` decides how any prose — chat, PR/issue bodies, commit messages, or a comment once `code-like-tim` has cleared it — gets trimmed once it does. Invoke explicitly during a comment, writing, or review pass; neither triggers on its own.
 
 ### Pair programming — `/driver` and `/navigator`
 
