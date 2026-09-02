@@ -59,6 +59,8 @@ One paragraph. For an external ticket, restate briefly and link out.
 
 The *how*: the seam being tested, implementation and testing decisions,
 anything ruled out and why. This is the half of a spec that isn't the issue body.
+Draw on decisions already reached earlier in this conversation — e.g. a `/grill-me`
+session — not just what's on the ticket.
 
 ## Tasks
 
@@ -78,3 +80,4 @@ anything ruled out and why. This is the half of a spec that isn't the issue body
 - Links go under the title as markdown bullets, matching what `track new --link` writes for issues — not in frontmatter.
 - `/work` consumes the plan and its tasks. `/issue` and `/mission` create the work items; this creates the plan for one.
 - The levels run `/mission` → `/plan M23` (decide, slice into issues) → `/plan 51` (how, for one issue) → `/work 51`.
+- **Pull in context already surfaced in this conversation, don't just re-fetch the ticket.** A `/grill-me` session's decisions belong in the Approach section; re-reading the tracker/ticket shouldn't silently drop them. `/grill-me` fits naturally right before this skill when an issue needs implementation decisions worked out before planning (as opposed to before `/issue`, for scope/design decisions).
