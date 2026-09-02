@@ -40,8 +40,9 @@ The script POSTs `{"merge_variables": {...}}` with:
 | variable | example |
 |----------|---------|
 | `date` | `Tuesday · Jul 7` |
-| `tasks` | `[{"text": "Finish #0036", "done": false}, …]` |
-| `done_count` / `total_count` | `1` / `3` |
+| `tasks` | `[{"text": "Ship the release notes", "description": "final pass before send"}, …]` |
+| `stoic_text` (optional) | `"You have power over your mind — not outside events."` |
+| `reviews_waiting` / `my_prs` (optional pair) | `2` / `1` |
 
 ## Limits (from TRMNL docs)
 

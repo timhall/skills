@@ -1,6 +1,6 @@
 ---
 name: issue
-description: Create a new issue in {notes vault}/issues/. Use when user reports a bug, investigation, or small self-contained work item — including when they say "/bug". Accepts a plain description and optional links.
+description: Create a new issue in {notes vault}/Issues/. Use when user reports a bug, investigation, or small self-contained work item — including when they say "/bug". Accepts a plain description and optional links.
 ---
 
 Create a new issue via the `track` CLI, which owns the ID, filename, and frontmatter format. Your job is the judgment; `track new` handles the format.
