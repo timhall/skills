@@ -46,11 +46,12 @@ A plan's `<key>` names its owner, and the folder name **is** the link. There is 
 
 Issue and mission IDs are separate sequences, so a bare number would be ambiguous — **missions take an `M` prefix, issues stay bare**. `M0004` is mission 4; `0004` is issue 4. An external ticket uses its own key verbatim, already namespaced by its project prefix.
 
-A mission may hold a plan (`M0011-fix-top-times-pdf-parser`), though usually a mission's plan is just its ordered issue set. The `M` prefix keeps that unambiguous rather than discouraged.
+Missions usually hold a plan, and it is a different artifact from an issue's. A **mission plan decides and cuts**: it settles the open questions, records what was deferred, and carries the ordered issue set with its blockers. An **issue plan says how**: tasks. `/plan M23` writes the first, `/plan 50` the second — see `plan/mission-plan.md`.
 
 ## Edges
 
 - **`mission:` on an issue is the canonical membership edge.** Missions may mention their issues in prose, but that prose is descriptive — `mission:` is what `track` reads.
+- **A mission plan's `## Issues` list is not a duplicate of that edge.** It holds the order, the blockers, and whether a slice needs you in the loop — none of which fit in frontmatter. Membership is queried with `track list -q mission=<id>`; sequencing is read from the plan.
 - **Plans carry no pointer.** Convention over field: the folder name resolves both directions, and a convention cannot be left unset. Two pointer fields have already failed here by non-population.
 - **`jira:` / `pr:` on an issue** point outward at the org's record.
 
@@ -111,12 +112,12 @@ The CLI lives at `skills/tracker/track`; the repo's `bin/track` symlinks to it, 
 `track new` and `track set` own the on-disk format — the ID scheme, filename padding, frontmatter schema, and body scaffold live in code, not in prose.
 
 ```bash
-track new issue   "<title>" [--slug S] [--source S] [--link "Label|URL"] [--description TEXT]
+track new issue   "<title>" [--slug S] [--source S] [--link "Label|URL"] [--description TEXT] [--mission N]
 track new mission "<title>" [--slug S] [--link "Label|URL"] [--problem TEXT] [--goal TEXT]
 track set <issue|mission> <id> key=value ...   # e.g. status=resolved, mission=20
 ```
 
-`--link` writes markdown bullets **under the title**, not frontmatter. Plans follow the same convention.
+`--link` writes markdown bullets **under the title**, not frontmatter. Plans follow the same convention. `--mission` takes `23` or `M23`, checks the mission exists, and refuses to file a dangling edge — it is how a mission's slices get created.
 
 The **`/issue`**, **`/mission`**, and **`/plan`** skills are thin wrappers: the agent supplies judgment, the CLI owns the format. Nothing hand-edits frontmatter.
 

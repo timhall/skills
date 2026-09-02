@@ -1,6 +1,6 @@
 ---
 name: plan
-description: Create or open a plan for a piece of work in {notes vault}/Plans/. Use when an issue needs a plan of tasks before implementation, or when the user says "/plan <id>" — accepts a local issue id (`/plan 50`) or an external ticket key (`/plan APICLIENT-4053`).
+description: Create or open a plan for a piece of work in {notes vault}/Plans/. Use when an issue needs a plan of tasks before implementation, when a mission needs slicing into issues, or when the user says "/plan <id>" — accepts a local issue id (`/plan 50`), a local mission id (`/plan M23`), or an external ticket key (`/plan APICLIENT-4053`).
 ---
 
 Read the **Notes vault** path from the `## Agent skills` section of CLAUDE.md — use it wherever `{notes vault}` appears below.
@@ -9,17 +9,21 @@ A **plan** says *how* a piece of work gets done. It lives at `{notes vault}/Plan
 
 The folder name *is* the link to the work — there is no pointer field. Key by the owner:
 
-| Argument | Key | Means |
-|---|---|---|
-| `50` | `0050-<slug>` | local issue 50 |
-| `APICLIENT-4053` | `APICLIENT-4053` | external ticket, verbatim |
+| Argument | Key | Means | Plan holds |
+|---|---|---|---|
+| `50` | `0050-<slug>` | local issue 50 | tasks |
+| `M23` | `M0023-<slug>` | local mission 23 | decisions + an issue set |
+| `APICLIENT-4053` | `APICLIENT-4053` | external ticket, verbatim | tasks |
 
-Bare 4-digit prefix = local issue; `M`-prefixed = local mission (rare — a mission's plan is normally its issue set); anything else is an external ticket key, used verbatim.
+Bare integer = local issue; `M`-prefixed = local mission; anything else is an external ticket key, used verbatim.
+
+**A mission plans differently.** Its slices are issues, not tasks — they leave the plan and live on their own. If the target is a mission, read `mission-plan.md` (colocated) and follow it instead of the steps below.
 
 ## Steps
 
 1. **Resolve the target.**
-   - **Local** (bare integer) — `track path issue <id>`. Read it for the problem and any prior investigation.
+   - **Local issue** (bare integer) — `track path issue <id>`. Read it for the problem and any prior investigation.
+   - **Local mission** (`M`-prefixed) — stop here and switch to `mission-plan.md`.
    - **External** (letter-prefixed key) — fetch the ticket, including comments. For an `APICLIENT-*` key use the Atlassian MCP with cloudId `postmanlabs.atlassian.net` (not `postman.atlassian.net` — that one is not granted). For a GitHub issue use `gh issue view`. **Do not create a local issue and do not mirror the description.** The ticket stays the source of truth for *what*; the plan is only *how*.
    - Treat the ticket's stated root cause as a claim, not a finding — auto-filed tickets often carry an unverified hypothesis.
 
@@ -70,6 +74,7 @@ anything ruled out and why. This is the half of a spec that isn't the issue body
 - **Never write a local issue or mission id into an external ticket, PR, or repo.** Sending findings out is fine; sending internal identifiers is not.
 - Design docs and sketches live in the plan folder and evolve with it. The plan is the living artifact.
 - Progress through an issue is progress through its plan; progress through a mission is progress through its issues.
-- A plan is roughly one issue in size — around five tasks is typical. Twenty is a sign the work is mission-shaped and wants splitting into issues.
+- A plan is roughly one issue in size — around five tasks is typical. Twenty is a sign the work is mission-shaped: file a mission and `/plan M<id>` to cut it into issues.
 - Links go under the title as markdown bullets, matching what `track new --link` writes for issues — not in frontmatter.
 - `/work` consumes the plan and its tasks. `/issue` and `/mission` create the work items; this creates the plan for one.
+- The levels run `/mission` → `/plan M23` (decide, slice into issues) → `/plan 51` (how, for one issue) → `/work 51`.

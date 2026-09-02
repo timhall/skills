@@ -14,10 +14,12 @@ Work happens at **task** level. A task lives in a plan; a plan belongs to one is
 | Argument | Means |
 |---|---|
 | `50` | local issue 50 |
-| `M20` | local mission 20 — resolve to its next unfinished issue via `track list -q mission=20` |
+| `M20` | local mission 20 — **re-target** to its next unfinished issue |
 | `APICLIENT-4062` | external ticket |
 
-Then find the plan: `track path plan <arg>` — it accepts all three forms. `track get plan <arg> --json` gives the frontmatter, body, and a `tasks: {done, total}` count.
+A mission is not a work target. For `M20`, read its plan's `## Issues` list for the order and blockers (`track get plan M20`), cross-check status with `track list -q mission=20`, and pick the next issue whose blockers are resolved. From there you are working that issue — **everything below uses the issue's id, not the mission's.** If the mission has no issues yet, offer `/plan M20` to cut it into some.
+
+Then find the plan: `track path plan <arg>` — it accepts an issue id or a ticket key. `track get plan <arg> --json` gives the frontmatter, body, and a `tasks: {done, total}` count.
 
 If there is no plan, say so and offer `/plan <arg>` to create one. Do not invent tasks without a plan.
 

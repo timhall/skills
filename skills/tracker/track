@@ -17,7 +17,8 @@ Usage:
   track list [-q key=val[,val2] ...] [--json]
   track get  <issue|mission> <id> [--json]   |  track get  plan <key>
   track path <issue|mission> <id>            |  track path plan <key>
-  track new  issue|mission "<title>" [--slug S] [--source S] [--link [Label|]URL] ...
+  track new  issue "<title>" [--slug S] [--source S] [--link [Label|]URL] [--mission N] ...
+  track new  mission "<title>" [--slug S] [--link [Label|]URL] [--problem T] [--goal T]
   track set  <issue|mission> <id> key=value ...
 
 Filters (repeatable -q; AND across keys, comma = OR within one key):
@@ -325,6 +326,17 @@ def next_id(typ):
     return max(ids) + 1 if ids else 1
 
 
+def resolve_mission_id(raw):
+    """'20' or 'M20' -> 20, checked against the vault. Refuses a dangling edge."""
+    m = re.match(r"^M?(\d+)$", str(raw).strip(), re.I)
+    if not m:
+        sys.exit(f"track: --mission wants a mission id, got {raw!r}")
+    mid = int(m.group(1))
+    if not any(it["id"] == mid for it in load_items("mission")):
+        sys.exit(f"track: no mission with id {mid}")
+    return mid
+
+
 def format_link(spec):
     """'Label|url' or bare 'url' -> '- [Label](url)'; label defaults to the host."""
     if "|" in spec:
@@ -356,10 +368,15 @@ def cmd_new(args):
     if typ == "issue":
         fm = [f"id: {new_id}", f'title: "{title}"', "status: open",
               f"source: {args.source or 'self'}", f"created: {created}",
-              "closed:", "pr:", "jira:", "tags: []"]
+              "closed:", "pr:", "jira:"]
+        if args.mission is not None:
+            fm.append(f"mission: {resolve_mission_id(args.mission)}")
+        fm.append("tags: []")
         sections = [("## Description", (args.description or "").strip()),
                     ("## Investigation", ""), ("## Resolution", "")]
     else:
+        if args.mission is not None:
+            sys.exit("track: --mission applies to issues, not missions")
         fm = [f"id: {new_id}", f'title: "{title}"', "status: idea",
               f"created: {created}", "jira:", "tags: []"]
         sections = [("## Problem", (args.problem or "").strip()),
@@ -452,6 +469,7 @@ def main():
     p_new.add_argument("--link", action="append", metavar="[Label|]URL",
                        help="link under the title (repeatable)")
     p_new.add_argument("--description", help="issue: Description body")
+    p_new.add_argument("--mission", help="issue: id of the mission it belongs to")
     p_new.add_argument("--problem", help="mission: Problem body")
     p_new.add_argument("--goal", help="mission: Goal body")
     p_new.add_argument("--json", action="store_true", help="emit {type,id,path}")
