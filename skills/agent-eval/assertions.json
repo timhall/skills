@@ -1,0 +1,22 @@
+[
+	{
+		"id": "example-verify-loop",
+		"expect": "used",
+		"pattern": "npm test",
+		"tests": "example only -- replace with the real edit-loop command for the claim you're testing, e.g. `pnpm verify` is the edit loop"
+	},
+	{
+		"id": "example-test-added",
+		"expect": "used",
+		"on": "diff",
+		"pattern": "^\\+.*paginate",
+		"tests": "example.md: add a test alongside the fix, not just the fix (asserted on the diff, not the command stream)",
+		"tasks": ["example"]
+	},
+	{
+		"id": "example-no-hand-rolled-loop",
+		"expect": "absent",
+		"pattern": "for \\(let i = 0",
+		"tests": "example only -- a claim like 'use the existing helper instead of a hand-rolled loop'"
+	}
+]

@@ -107,6 +107,14 @@ The morning and evening bookends of the workday, plus the TRMNL push they share,
 
 The case law behind `~/.claude/CLAUDE.md`'s comment and Length rules. `code-like-tim` decides whether a comment earns its place; `write-like-tim` decides how any prose — chat, PR/issue bodies, commit messages, or a comment once `code-like-tim` has cleared it — gets trimmed once it does. Invoke explicitly during a comment, writing, or review pass; neither triggers on its own.
 
+### `/agent-eval` — `skills/agent-eval/`
+
+Measures whether a line of `AGENTS.md`/`CLAUDE.md` actually changes agent behavior. Point it at a line and it finds or writes the task and assertion, resolves the with/without-guidance refs, runs the trials, and reports a keep/delete/reword/investigate verdict. Install with `npx skills add timhall/skills --skill agent-eval` **from inside the target repo** (no `-g`) rather than symlinking a shared copy — `assertions.json` and `tasks/` are meant to diverge into that repo's own claims; see [`skills/agent-eval/SKILL.md`](skills/agent-eval/SKILL.md).
+
+```
+/agent-eval that line about running pnpm verify before committing
+```
+
 ### Pair programming — `/driver` and `/navigator`
 
 Pairing styles live in `skills/pair-programming/`, one skill per style. The command names the role *the agent* takes. See [`skills/pair-programming/README.md`](skills/pair-programming/README.md) for the full taxonomy and the unbuilt slots (tour guide, ping pong).
