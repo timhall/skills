@@ -1,6 +1,6 @@
 .agents/
 skills-lock.json
-trmnl/uuid.txt
+skills/daily/trmnl/uuid.txt
 .mcp.json
 .claude/skills/
 .claude/settings.local.json

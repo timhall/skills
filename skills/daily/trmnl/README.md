@@ -13,7 +13,7 @@ e-ink display via a private-plugin webhook. Called automatically at the end of t
    `https://trmnl.com/api/custom_plugins/<UUID>`. Copy the `<UUID>` part.
 3. **Store it.** Paste the UUID into `uuid.txt` (this file is gitignored):
    ```
-   echo "PASTE-UUID-HERE" > ~/dev/timhall/skills/trmnl/uuid.txt
+   echo "PASTE-UUID-HERE" > ~/dev/timhall/skills/skills/daily/trmnl/uuid.txt
    ```
    Or set `TRMNL_WEBHOOK_UUID` in your shell env instead.
 4. **Paste the markup.** Copy `template.liquid` into the plugin's **Markup** editor

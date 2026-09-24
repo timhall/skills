@@ -99,10 +99,10 @@ The `- [ ]` items at the root level will be picked up by Rollover Daily Todos if
 After the note is written, push Today's 3 to the TRMNL e-ink display:
 
 ```bash
-python3 ~/dev/timhall/skills/trmnl/push_daily_note.py
+python3 ~/dev/timhall/skills/skills/daily/trmnl/push_daily_note.py
 ```
 
-Non-fatal — it self-skips if the webhook UUID isn't configured (`trmnl/uuid.txt`). See `trmnl/README.md` for one-time setup.
+Non-fatal — it self-skips if the webhook UUID isn't configured (`../trmnl/uuid.txt`). See `../trmnl/README.md` for one-time setup.
 
 ### 9. Optional Slack draft
 

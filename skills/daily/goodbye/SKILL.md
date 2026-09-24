@@ -63,10 +63,10 @@ Append to today's `{vault}/Daily Notes/YYYY-MM-DD.md`:
 Re-push the daily note so the display reflects end-of-day task state:
 
 ```bash
-python3 ~/dev/timhall/skills/trmnl/push_daily_note.py
+python3 ~/dev/timhall/skills/skills/daily/trmnl/push_daily_note.py
 ```
 
-Non-fatal — self-skips if the webhook UUID isn't configured. See `trmnl/README.md`.
+Non-fatal — self-skips if the webhook UUID isn't configured. See `../trmnl/README.md`.
 
 ### 6. Optional Slack draft
 

@@ -17,7 +17,7 @@ npx skills add ~/dev/timhall/skills
 If you're actively developing skills in this repo rather than just using them, skip `npx skills add` on your own clone. It materializes copies that drift from source, and with a broad agent scope it can litter your home directory with per-tool directories for agents you don't use. Symlink each skill directly instead:
 
 ```bash
-ln -s ~/dev/timhall/skills/goodbye ~/.claude/skills/goodbye
+ln -s ~/dev/timhall/skills/skills/daily/goodbye ~/.claude/skills/goodbye
 ```
 
 No cache, no lockfile, no staleness.
@@ -82,7 +82,7 @@ Everything for personal work tracking lives in `skills/tracker/` — the create 
 /plan PROJ-4053
 ```
 
-### `/work`
+### `/work` — `skills/work/`
 
 Step through a plan's tasks with managed context and worktree isolation. Takes an issue id (`/work 50`), a mission id (`/work M20`), or an external ticket key (`/work PROJ-4062`); resolves the plan by folder convention, picks the next unblocked task, and opens a worktree to work in.
 
@@ -90,23 +90,20 @@ Step through a plan's tasks with managed context and worktree isolation. Takes a
 /work 4
 ```
 
-### `/hello`
+### `/hello` and `/goodbye` — `skills/daily/`
 
-Morning triage ritual. Reads yesterday's daily note, open missions/issues, and GitHub PRs, then runs standup-style prompts, surfaces stuck items, and produces "Today's 3" written to the daily note. Optionally drafts a Slack update.
+The morning and evening bookends of the workday, plus the TRMNL push they share, live together in `skills/daily/`.
+
+- **`/hello`** — morning triage ritual. Reads yesterday's daily note, open missions/issues, and GitHub PRs, then runs standup-style prompts, surfaces stuck items, and produces "Today's 3" written to the daily note. Optionally drafts a Slack update.
+- **`/goodbye`** — end-of-day shutdown ritual. Captures what got done, surfaces open loops, flags carry-overs, and writes a close-of-day summary to the daily note. Optionally drafts a Slack update.
+- **`skills/daily/trmnl/`** — not a skill itself; pushes "Today's 3" to a TRMNL e-ink display, called by both. See [`skills/daily/trmnl/README.md`](skills/daily/trmnl/README.md) for one-time setup.
 
 ```
 /hello
-```
-
-### `/goodbye`
-
-End-of-day shutdown ritual. Captures what got done, surfaces open loops, flags carry-overs, and writes a close-of-day summary to the daily note. Optionally drafts a Slack update.
-
-```
 /goodbye
 ```
 
-### `code-like-tim` and `write-like-tim`
+### `code-like-tim` and `write-like-tim` — `skills/code-like-tim/`, `skills/write-like-tim/`
 
 The case law behind `~/.claude/CLAUDE.md`'s comment and Length rules. `code-like-tim` decides whether a comment earns its place; `write-like-tim` decides how any prose — chat, PR/issue bodies, commit messages, or a comment once `code-like-tim` has cleared it — gets trimmed once it does. Invoke explicitly during a comment, writing, or review pass; neither triggers on its own.
 
