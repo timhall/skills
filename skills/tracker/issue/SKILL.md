@@ -10,7 +10,7 @@ Create a new issue via the `track` CLI, which owns the ID, filename, and frontma
 1. **Infer from the description:**
    - **title** — a short human-readable title
    - **`--slug`** — a concise filename slug, *only* if the title is long or awkward; otherwise omit and the CLI slugifies the title
-   - **`--source`** — detect from context: Slack URL/mention → `slack`; email → `email`; user/customer report → `user-report`; JIRA → `jira`; otherwise `self`
+   - **`--source`** — only when the issue came from somewhere else: Slack URL/mention → `slack`; email → `email`; user/customer report → `user-report`; JIRA → `jira`; GitHub → `github`. Omit it when Tim is creating the issue directly — a blank `source` means exactly that.
    - **`--link`** — any URLs mentioned, one `--link` each, as `"Label|URL"` (e.g. `"Slack thread|https://…"`)
    - **`--description`** — the description as provided, cleaned up for clarity. Don't add "Reported via Slack" etc. — source and links convey that. If sparse, use it as-is; don't invent detail. If a `/grill-me` (or similar) session already worked through the problem earlier in this conversation, draft this from the decisions reached there — not just the line that triggered this skill.
 

@@ -1,6 +1,6 @@
 ---
 name: work
-description: Step through a plan's tasks with managed context and worktree isolation. Use when the user wants to start or continue work on a piece of work. Accepts an issue id (`/work 50`), a mission id (`/work M20`), or an external ticket key (`/work APICLIENT-4062`).
+description: Step through a plan's tasks with managed context and worktree isolation. Use when the user wants to start or continue work on a piece of work. Accepts an issue id (`/work 50`), a mission id (`/work M20`), or an external ticket key (`/work PROJ-4062`).
 ---
 
 Read the **Notes vault** path from the `## Agent skills` section of CLAUDE.md — use it wherever `{notes vault}` appears below.
@@ -15,7 +15,7 @@ Work happens at **task** level. A task lives in a plan; a plan belongs to one is
 |---|---|
 | `50` | local issue 50 |
 | `M20` | local mission 20 — **re-target** to its next unfinished issue |
-| `APICLIENT-4062` | external ticket |
+| `PROJ-4062` | external ticket |
 
 A mission is not a work target. For `M20`, read its plan's `## Issues` list for the order and blockers (`track get plan M20`), cross-check status with `track list -q mission=20`, and pick the next issue whose blockers are resolved. From there you are working that issue — **everything below uses the issue's id, not the mission's.** If the mission has no issues yet, offer `/plan M20` to cut it into some.
 
@@ -43,7 +43,7 @@ Read `delivery:` from the plan frontmatter — `per-task` (default) or `single-p
 
 Branch naming, and this matters:
 
-- **External ticket** — `APICLIENT-4062/<task-slug>`. The Jira key is the repo's own convention.
+- **External ticket** — `PROJ-4062/<task-slug>`. The Jira key is the repo's own convention.
 - **Local issue or mission** — use a descriptive slug only, e.g. `fix/graphql-cookie-context`. **Never put a local issue or mission id in a branch name.** Branches are pushed; that would leak an internal tracker reference into the repo.
 
 Use the EnterWorktree tool. Always state the branch name before creating it.

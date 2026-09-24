@@ -42,7 +42,7 @@ A plan's `<key>` names its owner, and the folder name **is** the link. There is 
 |---|---|
 | `0050-relax-platform-type-only-deps` | local issue 50 |
 | `M0023-agent-efficiency` | local mission 23 |
-| `APICLIENT-4053` | external ticket, verbatim |
+| `PROJ-4053` | external ticket, verbatim |
 
 Issue and mission IDs are separate sequences, so a bare number would be ambiguous — **missions take an `M` prefix, issues stay bare**. `M0004` is mission 4; `0004` is issue 4. An external ticket uses its own key verbatim, already namespaced by its project prefix.
 
@@ -53,7 +53,7 @@ Missions usually hold a plan, and it is a different artifact from an issue's. A 
 - **`mission:` on an issue is the canonical membership edge.** Missions may mention their issues in prose, but that prose is descriptive — `mission:` is what `track` reads.
 - **A mission plan's `## Issues` list is not a duplicate of that edge.** It holds the order, the blockers, and whether a slice needs you in the loop — none of which fit in frontmatter. Membership is queried with `track list -q mission=<id>`; sequencing is read from the plan.
 - **Plans carry no pointer.** Convention over field: the folder name resolves both directions, and a convention cannot be left unset. Two pointer fields have already failed here by non-population.
-- **`jira:` / `pr:` on an issue** point outward at the org's record.
+- **`branch:` / `pr:` / `issue:` / `jira:` on an issue** point outward at the same work elsewhere: the branch it lives on, its pull request, the GitHub issue, the org's ticket. `issue:` is the unusual one — a GitHub issue is normally canonical on its own, so a local note beside it is the exception rather than the rule. `list --json` projects them alongside `source`, so a tool can join on them without reading every file. A `branch:` is named the way a git branch is, optionally with the repo in front of it — `fix/retry`, `rig#fix/retry`, `acme/rig#fix/retry`.
 
 ## Plans and tasks
 
@@ -67,7 +67,7 @@ Missions usually hold a plan, and it is a different artifact from an issue's. A 
 
 Work that originates in Jira or GitHub stays there. Do **not** mirror it into a local issue.
 
-- `/plan APICLIENT-4053` creates `Plans/APICLIENT-4053/plan.md`. The ticket remains the source of truth for *what*; the plan holds only *how*.
+- `/plan PROJ-4053` creates `Plans/PROJ-4053/plan.md`. The ticket remains the source of truth for *what*; the plan holds only *how*.
 - **Push content, never identifiers.** Sending findings back to a ticket is expected. Writing a local issue or mission id into any external ticket, PR, or repo is not — see the "never leak internal trackers" rule in `~/.claude/CLAUDE.md`.
 
 ## Query — the `track` CLI
@@ -79,7 +79,7 @@ track list [-q key=val[,val2] ...] [--json]   # list, optionally filtered
 track get  <issue|mission> <id> [--json]       # print one item's file
 track path <issue|mission> <id>                # print one item's path
 track get  plan <key> [--json]                 # a plan, by key or owner id
-track path plan <key>                          # e.g. 50, M23, APICLIENT-4062
+track path plan <key>                          # e.g. 50, M23, PROJ-4062
 ```
 
 Filters are `-q key=value`, repeatable. Multiple `-q` flags **AND** together; commas within one value **OR** together.
@@ -116,6 +116,8 @@ track new issue   "<title>" [--slug S] [--source S] [--link "Label|URL"] [--desc
 track new mission "<title>" [--slug S] [--link "Label|URL"] [--problem TEXT] [--goal TEXT]
 track set <issue|mission> <id> key=value ...   # e.g. status=resolved, mission=20
 ```
+
+`--source` records where an issue came from — `slack`, `jira`, `github`, `user-report` — and is left blank for issues created directly, so a value always means an external origin.
 
 `--link` writes markdown bullets **under the title**, not frontmatter. Plans follow the same convention. `--mission` takes `23` or `M23`, checks the mission exists, and refuses to file a dangling edge — it is how a mission's slices get created.
 

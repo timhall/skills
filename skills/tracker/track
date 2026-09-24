@@ -6,7 +6,7 @@ The markdown files are the source of truth; this only reads them.
     Issues/NNNN-slug.md     Missions/NNNN-slug.md     Plans/<key>/plan.md
 
 A plan's folder name is its key and its link to the work it plans: NNNN-slug is
-issue NNNN, MNNNN-slug is mission NNNN, anything else (APICLIENT-4062) is an
+issue NNNN, MNNNN-slug is mission NNNN, anything else (PROJ-4062) is an
 external ticket. Only <key>/plan.md counts as a plan; folders holding just
 design docs are reference material, not plans.
 Each file opens with flat YAML-ish frontmatter (scalars + inline [lists]) between
@@ -26,6 +26,8 @@ Filters (repeatable -q; AND across keys, comma = OR within one key):
   -q status=open,investigating  match any listed status
   -q stale=2                    >= N days since last_triaged (else file mtime)
   -q <frontmatter-key>=...      any field, e.g. source=slack, tags=infra
+--json adds the fields naming the same work elsewhere: source, branch, pr,
+issue, jira.
 String matches are case-insensitive. A list-valued field (e.g. tags) matches if
 any of its entries is listed.
 
@@ -218,6 +220,12 @@ def matches(item, filters):
     return True
 
 
+# Fields naming the same work somewhere else: the branch it lives on, its pull request, its
+# ticket, where it came from. Projected into list --json so a consumer can join on them
+# without opening every file.
+OUTWARD = ("source", "branch", "pr", "issue", "jira")
+
+
 def cmd_list(args):
     filters = parse_filters(args.query)
     only = None
@@ -229,10 +237,14 @@ def cmd_list(args):
 
     if args.json:
         keys = ("type", "id", "status", "title", "path", "stale_days")
-        print(json.dumps([{**{k: it[k] for k in keys},
-                           **({"key": it["key"], "owner": it["owner"],
-                               "tasks": it["tasks"]} if it["type"] == "plan" else {})}
-                          for it in items], indent=2))
+
+        def project(it):
+            row = {k: it[k] for k in keys}
+            if it["type"] == "plan":
+                return {**row, "key": it["key"], "owner": it["owner"], "tasks": it["tasks"]}
+            return {**row, **{k: it["frontmatter"].get(k) for k in OUTWARD}}
+
+        print(json.dumps([project(it) for it in items], indent=2))
         return
     if not items:
         print("no matching items")
@@ -367,8 +379,8 @@ def cmd_new(args):
 
     if typ == "issue":
         fm = [f"id: {new_id}", f'title: "{title}"', "status: open",
-              f"source: {args.source or 'self'}", f"created: {created}",
-              "closed:", "pr:", "jira:"]
+              format_fm_line("source", args.source or ""), f"created: {created}",
+              "closed:", "branch:", "pr:", "issue:", "jira:"]
         if args.mission is not None:
             fm.append(f"mission: {resolve_mission_id(args.mission)}")
         fm.append("tags: []")
@@ -465,7 +477,9 @@ def main():
     p_new.add_argument("type", choices=("issue", "mission"))
     p_new.add_argument("title")
     p_new.add_argument("--slug", help="filename slug (default: slugified title)")
-    p_new.add_argument("--source", help="issue source (default: self)")
+    p_new.add_argument("--source",
+                       help="where the issue came from, e.g. slack, jira, github; "
+                            "omit when creating it directly")
     p_new.add_argument("--link", action="append", metavar="[Label|]URL",
                        help="link under the title (repeatable)")
     p_new.add_argument("--description", help="issue: Description body")
