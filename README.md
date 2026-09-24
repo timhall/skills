@@ -24,7 +24,7 @@ No cache, no lockfile, no staleness.
 
 ## Setup
 
-After installing, seed your global instructions. On a new machine, copy the sections from [`system-instructions.md`](system-instructions.md) into `~/.claude/CLAUDE.md` and fill in the machine-specific paths. At minimum you need an `# Agent skills` section — the skills read it at runtime, so changing a path once there updates all of them:
+After installing, seed your global instructions. Add an `# Agent skills` section to `~/.claude/CLAUDE.md` with your machine-specific paths — the skills read it at runtime, so changing a path once there updates all of them:
 
 ```markdown
 # Agent skills
@@ -63,7 +63,7 @@ Where a given grant belongs:
 
 Permission pattern forms: `Bash(cmd:*)` (prefix — any args), `Bash(cmd)` (exact), `WebFetch(domain:example.com)`, or a full MCP tool name like `mcp__server__tool`. Never blanket-allow arbitrary code execution (`Bash(node:*)`, `Bash(python3:*)`, sandbox `exec`, etc.) — grant the narrow read-only subcommands instead.
 
-The same global-vs-local split applies to instructions: durable personal preferences go in `~/.claude/CLAUDE.md` (seed it from [`system-instructions.md`](system-instructions.md)); per-repo guidance goes in that repo's `CLAUDE.md` or `AGENTS.md`, kept short and linking out to detail rather than inlining it.
+The same global-vs-local split applies to instructions: durable personal preferences go in `~/.claude/CLAUDE.md`; per-repo guidance goes in that repo's `CLAUDE.md` or `AGENTS.md`, kept short and linking out to detail rather than inlining it.
 
 ## Skills
 
