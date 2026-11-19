@@ -27,13 +27,13 @@ Built on two pieces. `scripts/watch-pr` blocks until the PR changes; read [watch
 
 This skill is installed per repo and is the same in every repo. A repo's own rules go in its `AGENTS.md` (or `CLAUDE.md`), not in this file. Read them before publishing. Where a rule is absent, use the default:
 
-| Rule | Default |
-|---|---|
-| Base branch | the repo's default branch |
-| Checks to run before pushing | the test and lint commands the repo documents; none if it documents none |
-| Merge method for auto-merge | `gh repo view --json viewerDefaultMergeMethod` |
-| Auto-merge | off |
-| Commit and PR conventions (title format, template, attribution) | the repo's existing history and PR template |
+| Rule                                                            | Default                                                                  |
+| --------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| Base branch                                                     | the repo's default branch                                                |
+| Checks to run before pushing                                    | the test and lint commands the repo documents; none if it documents none |
+| Merge method for auto-merge                                     | `gh repo view --json viewerDefaultMergeMethod`                           |
+| Auto-merge                                                      | off                                                                      |
+| Commit and PR conventions (title format, template, attribution) | the repo's existing history and PR template                              |
 
 A repo that merges by hand, for example with admin override, says so in `AGENTS.md`. This skill never merges either way, but the note keeps it from enabling auto-merge. Example:
 
@@ -56,25 +56,26 @@ No remote, no `gh` auth, or a failed push: stop with `Needs you:` and the error.
 
 ### 2. Arm the watch
 
-1. Wait about a minute so checks register, then run `scripts/watch-pr snapshot` and take its `fingerprint:` as the baseline.
-2. Write a loop-state line in the thread. It is how you recover after compaction or a restart:
+1. Wait about a minute so checks register, then run `scripts/watch-pr snapshot`.
+2. Handle what is already there before waiting. The first snapshot becomes the baseline, so a failing check, an unresolved thread, or a comment or review from someone else that is already present would never wake you. If the snapshot shows any, run `check-pr` now and continue as in step 4, which takes a new snapshot. This is the normal case when you reuse an existing PR or a bot reviews quickly. If it shows `ready: yes` with checks reported, go to step 5.
+3. Write a loop-state line in the thread. It is how you recover after compaction or a restart:
 
    `Loop: PR <url> | wake-ups 0/10 | started <time> | ready-since - | fix attempts: -`
 
-3. Start `scripts/watch-pr wait --baseline <fingerprint> --timeout <time left of 24h>` as a **background terminal**, then end the turn with one line (`Watching <url>.`). The terminal's exit wakes the thread.
+4. Start `scripts/watch-pr wait --baseline <fingerprint> --timeout <time left of 24h>` as a **background terminal**, then end the turn with one line (`Watching <url>.`). The terminal's exit wakes the thread.
 
 ### 3. On each wake-up
 
 Read the output's first line and exit status.
 
-| Result | Action |
-|---|---|
-| PR merged | Report **Merged** with the merge commit. End. |
-| PR closed unmerged | Report it as `Needs you:`. End. |
-| Timeout (exit 8) before ready | `Needs you:` with the last state. End. |
-| Timeout after ready | Say the PR is still open and the watch ended. End. |
-| Error (exit 1) | Retry once; then `Needs you:` with the error. |
-| Changed | Run `check-pr` in autonomous mode, then follow the next step. |
+| Result                        | Action                                                        |
+| ----------------------------- | ------------------------------------------------------------- |
+| PR merged                     | Report **Merged** with the merge commit. End.                 |
+| PR closed unmerged            | Report it as `Needs you:`. End.                               |
+| Timeout (exit 8) before ready | `Needs you:` with the last state. End.                        |
+| Timeout after ready           | Say the PR is still open and the watch ended. End.            |
+| Error (exit 1)                | Retry once; then `Needs you:` with the error.                 |
+| Changed                       | Run `check-pr` in autonomous mode, then follow the next step. |
 
 Count the wake-up and update the loop-state line (wake-ups, fix attempts per check name).
 
@@ -83,7 +84,7 @@ Count the wake-up and update the loop-state line (wake-ups, fix attempts per che
 - **Needs you** → end the turn with `Needs you:`, quoting each item's evidence. Say what was already handled.
 - **Handled** → wait about a minute if `check-pr` pushed (so checks register), then run `scripts/watch-pr snapshot`. Read it for anything `check-pr` didn't see; a comment may have arrived while it worked, and the new baseline would hide it. If there is such an item, run `check-pr` again.
   - `ready: yes` with checks reported → step 5.
-  - Otherwise re-arm as in step 2.3 with the snapshot's fingerprint.
+  - Otherwise re-arm (step 2.4) with the snapshot's fingerprint as the baseline.
 
 ### 5. Ready
 

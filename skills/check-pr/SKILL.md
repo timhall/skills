@@ -25,10 +25,13 @@ No PR for this branch → say so and stop.
 ### 2. CI failures
 
 ```bash
-gh pr checks <number> --json name,state,link,workflow
+gh pr checks <number> --json name,bucket,state,link,workflow
 ```
 
-For each `state != SUCCESS`:
+Each check has a `bucket`: `pass`, `fail`, `pending`, `skipping`, or `cancel`. Only `fail` is a failure to diagnose. `pass` and `skipping` are healthy and `pending` is still running, so ignore all three. For `cancel`, report the check with its link; there is no failure log to read, and in autonomous mode it is **Needs you**.
+
+For each check with `bucket` `fail`:
+
 - If `link` is a GitHub Actions run, pull the failure: `gh run view <run-id> --log-failed` (run id is the numeric segment in the link).
 - Non-Actions CI (external link) → note it, tell the user to check the provider's UI, skip.
 - Diagnose root cause from the log, don't just retry. Note the fix but hold off committing until step 4 is triaged too — a review comment may touch the same lines.
@@ -68,12 +71,12 @@ Only threads with `isResolved: false` are live work. A `[bot]` suffix on `author
 
 For each, decide:
 
-| Verdict | Action |
-|---|---|
-| Actionable, clear fix | Make the code change, queue a reply describing it |
-| Actionable, but the "fix" is a judgment call (design disagreement, scope question) | Don't resolve unilaterally — draft a reply, flag it for the user to weigh in on in step 5 |
-| Already addressed by a prior commit | Reply pointing at the commit, resolve |
-| Not actionable (stale, out of scope, won't-fix) | Reply with the reason, resolve only if the reasoning is clear-cut — otherwise leave open for the user |
+| Verdict                                                                            | Action                                                                                                |
+| ---------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| Actionable, clear fix                                                              | Make the code change, queue a reply describing it                                                     |
+| Actionable, but the "fix" is a judgment call (design disagreement, scope question) | Don't resolve unilaterally — draft a reply, flag it for the user to weigh in on in step 5             |
+| Already addressed by a prior commit                                                | Reply pointing at the commit, resolve                                                                 |
+| Not actionable (stale, out of scope, won't-fix)                                    | Reply with the reason, resolve only if the reasoning is clear-cut — otherwise leave open for the user |
 
 **Write the evidence into the thread before acting**, one entry per item, so the context survives compaction and the user can follow the loop:
 

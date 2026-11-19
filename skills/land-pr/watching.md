@@ -17,23 +17,23 @@ scripts/watch-pr wait --baseline FINGERPRINT [--pr REF] [--timeout 24h] [--heart
 2. Run `wait --baseline <that fingerprint>` **in the background** (the terminal tool's `background: true`). It exits when the PR differs from the baseline, and Delta wakes the thread with its output.
 3. After handling the change, take a fresh `snapshot` and use its fingerprint as the next baseline. Your own pushes and resolutions change the PR, so reusing the old baseline wakes you on your own actions.
 
-| Exit | Meaning |
-|---|---|
-| 0 | Changed, or the PR is no longer open. First line names the changed components. |
-| 8 | `--timeout` reached with no change. Re-arm or stop. |
-| 1 | Error. |
+| Exit | Meaning                                                                        |
+| ---- | ------------------------------------------------------------------------------ |
+| 0    | Changed, or the PR is no longer open. First line names the changed components. |
+| 8    | `--timeout` reached with no change. Re-arm or stop.                            |
+| 1    | Error.                                                                         |
 
 ## What changes the fingerprint
 
-| Component | Changes when |
-|---|---|
-| `state` | open, closed, merged, or draft status changes |
-| `head` | the branch gets a new commit |
-| `conflict` | the PR starts or stops conflicting with its base |
-| `checks` | a check fails while others run, or the last pending check finishes |
-| `threads` | an unresolved thread appears, is resolved, or gets a reply from someone else |
-| `comments` | someone else posts a conversation comment |
-| `reviews` | someone else submits a review |
+| Component  | Changes when                                                                 |
+| ---------- | ---------------------------------------------------------------------------- |
+| `state`    | open, closed, merged, or draft status changes                                |
+| `head`     | the branch gets a new commit                                                 |
+| `conflict` | the PR starts or stops conflicting with its base                             |
+| `checks`   | a check fails while others run, or the last pending check finishes           |
+| `threads`  | an unresolved thread appears, is resolved, or gets a reply from someone else |
+| `comments` | someone else posts a conversation comment                                    |
+| `reviews`  | someone else submits a review                                                |
 
 "Someone else" means anyone but the authenticated `gh` user, so the agent's own replies don't wake it. The same rule means comments you post by hand as that user don't wake it either.
 
