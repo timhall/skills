@@ -115,6 +115,28 @@ Measures whether a line of `AGENTS.md`/`CLAUDE.md` actually changes agent behavi
 /agent-eval that line about running pnpm verify before committing
 ```
 
+### `/check-pr` — `skills/check-pr/`
+
+Checks the PR for the currently checked-out branch for CI failures and code-review comments (human or bot), then either fixes the issue and pushes, or replies to and resolves the comment. Confirms once before pushing or posting anything. When `land-pr` calls it, it runs one autonomous pass instead, within fixed limits (see the skill).
+
+```
+/check-pr
+```
+
+### Landing a PR in Delta — `land-pr`
+
+Delta's **Merge** button forks the thread and runs a skill marked `metadata.delta-action: land`. `land-pr` is that skill. It pushes and opens the PR, then loops until GitHub is happy: wait for CI or reviews to change, run `check-pr` autonomously on each change, repeat. It ends at `Ready:` (checks green, bot threads handled) or `Needs you:`, then keeps a watch armed for up to 24 hours so it can report **Merged** when the PR actually merges. It never merges the PR itself.
+
+The waiting step is `skills/land-pr/scripts/watch-pr`, a shell script (`gh` + `jq`, no model calls) that blocks until the PR differs from a baseline fingerprint. It runs as a background terminal so its exit wakes the thread. It uses `gh event listen` when the account has event subscriptions and polls otherwise. See [`watching.md`](skills/land-pr/watching.md). Offline tests: `skills/land-pr/scripts/test.sh`.
+
+Install both skills into each repo you want to land from, then commit them so teammates and new Delta threads get them. Run from inside the repo:
+
+```bash
+npx skills add timhall/skills -s land-pr -s check-pr -a codex --copy -y
+```
+
+`-a codex` writes to `.agents/skills/`, where Delta looks (the default agent targets write elsewhere). `--copy` makes real files rather than links. Re-run the same command, or `npx skills update`, to sync. The skills are identical in every repo: put repo-specific rules (checks to run, merge method, auto-merge, "a person merges") in that repo's `AGENTS.md`, as described in `skills/land-pr/SKILL.md`. Then open **Merge** in a Delta thread and pick `land-pr`.
+
 ### Pair programming — `/driver` and `/navigator`
 
 Pairing styles live in `skills/pair-programming/`, one skill per style. The command names the role *the agent* takes. See [`skills/pair-programming/README.md`](skills/pair-programming/README.md) for the full taxonomy and the unbuilt slots (tour guide, ping pong).

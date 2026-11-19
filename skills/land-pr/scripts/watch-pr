@@ -1,0 +1,254 @@
+#!/usr/bin/env bash
+# watch-pr — block until a GitHub PR changes, then print what it looks like now.
+#
+#   watch-pr snapshot [--pr REF]
+#   watch-pr wait --baseline FINGERPRINT [--pr REF] [--timeout 24h] [--heartbeat 120] [--poll 30]
+#
+# REF is a number, URL, or branch; default is the current branch's PR.
+# Output is a text report whose last line is `fingerprint: ...`. Pass that back
+# as --baseline. `wait` exits 0 when the PR differs from the baseline (or is no
+# longer open), 8 on timeout, 1 on error.
+#
+# The fingerprint covers GitHub state only: PR state, head SHA, merge conflict,
+# checks, unresolved threads, and comments/reviews from anyone but the
+# authenticated user. A pending check settling does not change it; a new
+# failure or all checks finishing does.
+
+set -euo pipefail
+
+EVENTS=com.github.pull_request.review.submitted.v1,com.github.pull_request.state.changed.v1,com.github.pull_request.head.changed.v1,com.github.pull_request.merge_conflict.v1,com.github.pull_request.check_suite.status.changed.v1
+DEBOUNCE=5
+
+die() { echo "watch-pr: $*" >&2; exit 1; }
+
+duration_seconds() {
+  local n=$1 mult=1
+  case $n in
+    *h) mult=3600; n=${n%h} ;;
+    *m) mult=60; n=${n%m} ;;
+    *s) n=${n%s} ;;
+  esac
+  [[ $n =~ ^[0-9]+$ ]] || die "bad duration: $1"
+  echo $((n * mult))
+}
+
+resolve_pr() {
+  local url
+  url=$(gh pr view ${PR_REF:+"$PR_REF"} --json url -q .url) || die "no pull request found"
+  [[ $url =~ ^https://github\.com/([^/]+)/([^/]+)/pull/([0-9]+) ]] || die "unsupported PR url: $url"
+  OWNER=${BASH_REMATCH[1]} REPO=${BASH_REMATCH[2]} NUMBER=${BASH_REMATCH[3]} URL=${BASH_REMATCH[0]}
+}
+
+GRAPHQL='query($owner: String!, $repo: String!, $pr: Int!) {
+  repository(owner: $owner, name: $repo) {
+    pullRequest(number: $pr) {
+      state isDraft mergeable headRefOid reviewDecision
+      reviewThreads(first: 100) { nodes {
+        id isResolved isOutdated path line
+        comments(last: 20) { nodes { databaseId url body createdAt author { login __typename } } }
+      } }
+      comments(last: 50) { nodes { databaseId url body createdAt author { login __typename } } }
+      reviews(last: 50) { nodes { databaseId url state body submittedAt author { login __typename } } }
+    }
+  }
+}'
+
+# Prints {viewer, pr, checks} as JSON. Fails on transient errors so callers can retry.
+fetch() {
+  local pr checks rc=0
+  VIEWER=${VIEWER:-$(gh api user -q .login)}
+  pr=$(gh api graphql -f query="$GRAPHQL" -f owner="$OWNER" -f repo="$REPO" -F pr="$NUMBER") || return 1
+  # Exit 8 means checks are pending; the JSON is still valid.
+  checks=$(gh pr checks "$URL" --json name,bucket,state,link,workflow 2>"$TMP/checks.err") || rc=$?
+  if [[ $rc -ne 0 && $rc -ne 8 ]]; then
+    grep -q 'no checks reported' "$TMP/checks.err" || return 1
+    checks='[]'
+  fi
+  jq -n --arg viewer "$VIEWER" --argjson pr "$pr" --argjson checks "$checks" \
+    '{viewer: $viewer, pr: $pr.data.repository.pullRequest, checks: $checks}'
+}
+
+DIGEST='
+.viewer as $viewer
+| def login: .author.login // "ghost";
+  def bot: ((.author.__typename // "") == "Bot") or (login | endswith("[bot]"));
+  def mine: login == $viewer;
+  def item: {id: .databaseId, author: login, bot: bot, url: .url, body: .body};
+  def ids: map(.id | tostring) | sort | join(",");
+
+.pr as $pr
+| (.checks | map(. + {key: "\(.workflow)/\(.name)"})) as $cs
+| ($cs | map(select(.bucket == "fail"))) as $failing
+| ($cs | map(select(.bucket == "pending"))) as $pending
+| ($cs | map(select(.bucket == "cancel"))) as $cancelled
+| [$pr.reviewThreads.nodes[]
+    | select(.isResolved | not)
+    | (.comments.nodes | map(select(mine | not))) as $others
+    | select($others | length > 0)
+    | ($others | last) as $last
+    | {id, path, line, outdated: .isOutdated} + ($last | item) + {last: $last.databaseId}
+  ] as $threads
+| ($pr.comments.nodes | map(select(mine | not) | item)) as $comments
+| ($pr.reviews.nodes | map(select(mine | not) | item + {state})) as $reviews
+| ([ if $pr.state != "OPEN" then "PR is \($pr.state | ascii_downcase)" else empty end,
+      if $pr.isDraft then "PR is a draft" else empty end,
+      if $pr.mergeable == "CONFLICTING" then "merge conflict" else empty end,
+      if ($failing | length) > 0 then "\($failing | length) failing checks" else empty end,
+      if ($pending | length) > 0 then "\($pending | length) pending checks" else empty end,
+      if ($cancelled | length) > 0 then "\($cancelled | length) cancelled checks" else empty end,
+      if ($threads | map(select(.bot)) | length) > 0 then "\($threads | map(select(.bot)) | length) unresolved bot threads" else empty end
+    ]) as $reasons
+| {
+    state: $pr.state, draft: $pr.isDraft, head: $pr.headRefOid,
+    conflicting: ($pr.mergeable == "CONFLICTING"), decision: $pr.reviewDecision,
+    checks: {total: ($cs | length), failing: $failing, pending: $pending, cancelled: $cancelled},
+    threads: $threads, comments: $comments[-5:], reviews: $reviews[-5:],
+    ready: ($reasons | length == 0), reasons: $reasons,
+    components: {
+      state: "\($pr.state)/\($pr.isDraft)",
+      head: $pr.headRefOid,
+      conflict: ($pr.mergeable == "CONFLICTING" | tostring),
+      checks: (if ($pending | length) > 0 or ($cs | length) == 0
+               then ("running|" + ($failing | map(.key) | sort | join(",")))
+               else ($cs | map("\(.key):\(.bucket)") | sort | join(",")) end),
+      threads: ($threads | map("\(.id):\(.last)") | sort | join(",")),
+      comments: ($comments | ids),
+      reviews: ("\($pr.reviewDecision)|" + ($reviews | map("\(.id):\(.state)") | sort | join(",")))
+    }
+  }
+'
+
+digest() { jq "$DIGEST"; }
+
+fingerprint() {
+  local key value out=()
+  while IFS=$'\t' read -r key value; do
+    out+=("$key=$(printf %s "$value" | shasum | cut -c1-7)")
+  done < <(jq -r '.components | to_entries[] | "\(.key)\t\(.value)"')
+  (IFS=,; echo "${out[*]-}")
+}
+
+changed_components() {
+  local baseline=",$1," pair out=() pairs
+  IFS=, read -ra pairs <<<"$2"
+  for pair in "${pairs[@]}"; do
+    [[ $baseline == *",$pair,"* ]] || out+=("${pair%%=*}")
+  done
+  (IFS=,; echo "${out[*]-}")
+}
+
+REPORT='
+def clip($n): gsub("\r"; "") | if length > $n then .[0:$n] + "…" else . end;
+def quote: (.body // "") | clip(500) | split("\n") | map(select(test("\\S")) | "      > " + .) | join("\n");
+def check: "  - \(.workflow | if . == "" then "" else . + " / " end)\(.name) \(.link)";
+"state: \(.state)\(if .draft then " (draft)" else "" end) | head: \(.head[0:7]) | conflicts: \(if .conflicting then "yes" else "no" end) | review decision: \(.decision // "none")",
+"ready: \(if .ready then "yes" else "no (" + (.reasons | join(", ")) + ")" end)",
+"checks: \(.checks.total) reported, \(.checks.failing | length) failing, \(.checks.pending | length) pending, \(.checks.cancelled | length) cancelled",
+(.checks.failing[] | "  FAILING" + check),
+(.checks.pending[] | "  PENDING" + check),
+(.checks.cancelled[] | "  CANCELLED" + check),
+"unresolved threads with replies from others: \(.threads | length)",
+(.threads[] | "  - [\(.id)] @\(.author)\(if .bot then " (bot)" else "" end) \(.path):\(.line // "-")\(if .outdated then " (outdated)" else "" end) \(.url)\n" + quote),
+"latest conversation comments from others: \(.comments | length)",
+(.comments[] | "  - @\(.author)\(if .bot then " (bot)" else "" end) \(.url)\n" + quote),
+"latest reviews from others: \(.reviews | length)",
+(.reviews[] | "  - @\(.author) \(.state) \(.url)" + (if (.body // "") == "" then "" else "\n" + quote end))
+'
+
+report() { echo "$1" | jq -r "$REPORT"; echo "fingerprint: $2"; }
+
+state_of() { echo "$1" | jq -r .state; }
+
+take_snapshot() {
+  local raw
+  raw=$(fetch) || return 1
+  SNAP=$(digest <<<"$raw") || return 1
+  FP=$(fingerprint <<<"$SNAP") || return 1
+}
+
+# Events are only a wake-up hint: the stream drops events while reconnecting and
+# can't be attached atomically with a snapshot, so every loop re-reads state.
+wait_for_event() {
+  local seconds=$1 rc=0
+  if [[ $LISTEN == on ]]; then
+    gh event listen --resource "$URL" --event "$EVENTS" --timeout "${seconds}s" >/dev/null 2>"$TMP/listen.err" || rc=$?
+    case $rc in
+      0) sleep "$DEBOUNCE"; return ;;
+      8) return ;;
+      *) LISTEN=off
+         echo "watch-pr: event stream unavailable, polling every ${POLL}s: $(head -c 300 "$TMP/listen.err")" >&2 ;;
+    esac
+  fi
+  sleep $((seconds < POLL ? seconds : POLL))
+}
+
+cmd_snapshot() {
+  resolve_pr
+  take_snapshot || die "could not read PR state"
+  echo "PR $URL"
+  report "$SNAP" "$FP"
+}
+
+cmd_wait() {
+  local baseline=${BASELINE:-} timeout=86400 heartbeat=120 failures=0 deadline remaining changed
+  [[ -n $baseline ]] || die "wait needs --baseline (take one with: watch-pr snapshot)"
+  [[ -n ${TIMEOUT:-} ]] && timeout=$(duration_seconds "$TIMEOUT")
+  [[ -n ${HEARTBEAT:-} ]] && heartbeat=$HEARTBEAT
+  deadline=$(($(date +%s) + timeout))
+  LISTEN=on
+  resolve_pr
+
+  while :; do
+    if ! take_snapshot; then
+      failures=$((failures + 1))
+      [[ $failures -lt 5 ]] || die "could not read PR state after $failures attempts"
+      sleep 10
+      continue
+    fi
+    failures=0
+
+    changed=$(changed_components "$baseline" "$FP")
+    if [[ -n $changed ]] || [[ $(state_of "$SNAP") != OPEN ]]; then
+      echo "watch-pr: changed (${changed:-state}) $URL"
+      report "$SNAP" "$FP"
+      exit 0
+    fi
+
+    remaining=$((deadline - $(date +%s)))
+    if [[ $remaining -le 0 ]]; then
+      echo "watch-pr: timeout after ${timeout}s with no change $URL"
+      echo "fingerprint: $FP"
+      exit 8
+    fi
+    wait_for_event $((remaining < heartbeat ? remaining : heartbeat))
+  done
+}
+
+main() {
+  local cmd=${1:-}
+  [[ -n $cmd ]] || die "usage: watch-pr snapshot|wait [options]"
+  shift
+  PR_REF= BASELINE= TIMEOUT= HEARTBEAT= POLL=30
+  while [[ $# -gt 0 ]]; do
+    case $1 in
+      --pr) PR_REF=${2:?}; shift 2 ;;
+      --baseline) BASELINE=${2:?}; shift 2 ;;
+      --timeout) TIMEOUT=${2:?}; shift 2 ;;
+      --heartbeat) HEARTBEAT=$(duration_seconds "${2:?}"); shift 2 ;;
+      --poll) POLL=$(duration_seconds "${2:?}"); shift 2 ;;
+      *) die "unknown option: $1" ;;
+    esac
+  done
+
+  TMP=$(mktemp -d)
+  trap 'rm -rf "$TMP"' EXIT
+  trap 'exit 143' INT TERM
+
+  case $cmd in
+    snapshot) cmd_snapshot ;;
+    wait) cmd_wait ;;
+    *) die "unknown command: $cmd" ;;
+  esac
+}
+
+[[ ${BASH_SOURCE[0]} != "$0" ]] || main "$@"
